@@ -13,13 +13,9 @@ pub struct Controller {
 impl Controller {
     /// Creates a new gameboard controller.
     pub fn new(gameboard: Chess) -> Self {
-        Self {
-            board: gameboard,
-        }
+        Self { board: gameboard }
     }
 
     /// Handles events.
-    pub fn event<E: GenericEvent>(&mut self, _e: &E) {
-
-    }
+    pub fn event<E: GenericEvent>(&mut self, _e: &E) {}
 }

@@ -6,12 +6,12 @@ pub const SIDE_LENGTH: usize = 8;
 /// chess game board structure
 pub struct Chess {
     /// stores the content of the cells
-    pub cells: [[ChessCell; SIDE_LENGTH]; SIDE_LENGTH]
+    pub cells: [[ChessCell; SIDE_LENGTH]; SIDE_LENGTH],
 }
 
-impl Chess {
+impl Default for Chess {
     /// creates a new chessboard
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self {
             cells: [[ChessCell::Empty; SIDE_LENGTH]; SIDE_LENGTH],
         }

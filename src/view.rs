@@ -3,9 +3,9 @@
 use graphics::types::Color;
 use graphics::{Context, Graphics};
 
-use crate::controller::Controller;
 use crate::board::SIDE_LENGTH;
-use crate::{WINDOW_SIZE, BOARD_SIZE};
+use crate::controller::Controller;
+use crate::{BOARD_SIZE, WINDOW_SIZE};
 
 /// Stores gameboard view settings.
 pub struct ViewSettings {
@@ -19,9 +19,9 @@ pub struct ViewSettings {
     pub black_color: Color,
 }
 
-impl ViewSettings {
+impl Default for ViewSettings {
     /// Creates new gameboard view settings.
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self {
             position: [(WINDOW_SIZE - BOARD_SIZE) / 2.0, WINDOW_SIZE * 0.05],
             size: BOARD_SIZE,
@@ -40,19 +40,19 @@ pub struct View {
 impl View {
     /// Creates a new gameboard view.
     pub fn new(settings: ViewSettings) -> View {
-        View {
-            settings: settings,
-        }
+        View { settings }
     }
 
     /// Draw gameboard.
     pub fn draw<G: Graphics>(&self, _controller: &Controller, c: &Context, g: &mut G) {
         use graphics::Rectangle;
 
-        let ref settings = self.settings;
+        let settings = &self.settings;
         let board_rect = [
-            settings.position[0], settings.position[1],
-            settings.size, settings.size,
+            settings.position[0],
+            settings.position[1],
+            settings.size,
+            settings.size,
         ];
 
         // Draw board background.

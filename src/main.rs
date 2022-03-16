@@ -1,17 +1,16 @@
 #![deny(missing_docs)]
 //! Chess Game
 
-extern crate piston;
 extern crate glutin_window;
 extern crate graphics;
 extern crate opengl_graphics;
+extern crate piston;
 
-use piston::window::WindowSettings;
-use piston::event_loop::{Events, EventSettings, EventLoop};
-use piston::input::RenderEvent;
 use glutin_window::GlutinWindow;
-use opengl_graphics::{OpenGL, GlGraphics};
-
+use opengl_graphics::{GlGraphics, OpenGL};
+use piston::event_loop::{EventLoop, EventSettings, Events};
+use piston::input::RenderEvent;
+use piston::window::WindowSettings;
 
 pub mod board;
 pub mod controller;
@@ -31,22 +30,21 @@ fn main() {
     let settings = WindowSettings::new("Chess", [WINDOW_SIZE; 2])
         .graphics_api(opengl)
         .exit_on_esc(true);
-    let mut window: GlutinWindow = settings.build()
-        .expect("Could not create window");
+    let mut window: GlutinWindow = settings.build().expect("Could not create window");
 
     let mut events = Events::new(EventSettings::new().lazy(true));
     let mut gl = GlGraphics::new(opengl);
-  
-    let board = Chess::new();
+
+    let board = Chess::default();
     let mut controller = Controller::new(board);
-    let gameboard_view = View::new(ViewSettings::new());
-  
+    let gameboard_view = View::new(ViewSettings::default());
+
     while let Some(e) = events.next(&mut window) {
         controller.event(&e);
         if let Some(args) = e.render_args() {
             gl.draw(args.viewport(), |c, g| {
-                use graphics::{clear};
-  
+                use graphics::clear;
+
                 clear([1.0; 4], g);
                 gameboard_view.draw(&controller, &c, g);
             });
