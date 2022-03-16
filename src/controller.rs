@@ -4,7 +4,7 @@ use piston::input::GenericEvent;
 
 use crate::board::Chess;
 
-/// Handles events for Sudoku game.
+/// Handles events for Chess game.
 pub struct Controller {
     /// Stores the gameboard state.
     pub board: Chess,

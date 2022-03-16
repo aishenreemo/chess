@@ -28,7 +28,7 @@ pub const BOARD_SIZE: f64 = 400.0;
 
 fn main() {
     let opengl = OpenGL::V3_2;
-    let settings = WindowSettings::new("Sudoku", [WINDOW_SIZE; 2])
+    let settings = WindowSettings::new("Chess", [WINDOW_SIZE; 2])
         .graphics_api(opengl)
         .exit_on_esc(true);
     let mut window: GlutinWindow = settings.build()
