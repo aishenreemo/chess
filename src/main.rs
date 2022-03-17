@@ -3,11 +3,13 @@
 #![deny(missing_docs)]
 
 mod board;
+pub mod piece;
 
 use sdl2::event::Event;
+use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use sdl2::render::WindowCanvas;
+use sdl2::render::{Texture, WindowCanvas};
 use std::time::Duration;
 
 /// chess board should has 8 each side
@@ -17,17 +19,20 @@ pub const WINDOW_SIZE: u32 = 512;
 /// board size inside the window
 pub const BOARD_SIZE: u32 = 400;
 
-/// white color of the board
-pub const WHITE: Color = Color::RGB(250, 229, 210);
-/// black color of the board
-pub const BLACK: Color = Color::RGB(122, 95, 71);
-
-fn render(canvas: &mut WindowCanvas) -> Result<(), String> {
+fn render(canvas: &mut WindowCanvas, texture: &Texture) -> Result<(), String> {
     // fill background
-    canvas.set_draw_color(WHITE);
+    canvas.set_draw_color(Color::RGB(250, 229, 210));
     canvas.clear();
 
     board::render_graphical_board(canvas)?;
+    piece::render_graphical_piece(
+        canvas,
+        &piece::ColoredPiece::W(piece::Piece::Queen),
+        texture,
+        0,
+        0,
+    )?;
+
     canvas.present();
     Ok(())
 }
@@ -51,7 +56,10 @@ fn main() -> Result<(), String> {
         .build()
         .expect("could not make a canvas");
 
-    render(&mut canvas)?;
+    let texture_creator = canvas.texture_creator();
+    let pieces = texture_creator.load_texture("assets/chess_pieces.png")?;
+
+    render(&mut canvas, &pieces)?;
 
     let mut event_pump = ctx.event_pump()?;
     'running: loop {
@@ -73,7 +81,7 @@ fn main() -> Result<(), String> {
 
         // render
         // this should be lazy
-        render(&mut canvas)?;
+        // render(&mut canvas, &pieces)?;
 
         // 60 fps
         std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
