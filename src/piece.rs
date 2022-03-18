@@ -1,6 +1,6 @@
 //!
 use crate::board::board_pos_into_canvas_pos;
-use crate::{BOARD_SIDE_LENGTH, BOARD_SIZE};
+use crate::CELL_WIDTH;
 use sdl2::rect::Rect;
 use sdl2::render::{Texture, WindowCanvas};
 
@@ -8,23 +8,18 @@ use sdl2::render::{Texture, WindowCanvas};
 pub fn render_graphical_piece(
     canvas: &mut WindowCanvas,
     piece: &ColoredPiece,
-    texture: &Texture,
+    pieces: &Texture,
     column: u32,
     row: u32,
 ) -> Result<(), String> {
     if &ColoredPiece::Empty == piece {
-        return Err("Unknown piece".to_owned());
+        return Ok(());
     }
 
-    let cell_width = BOARD_SIZE / BOARD_SIDE_LENGTH;
     let (x, y) = board_pos_into_canvas_pos(column, row);
-    let piece_rect = get_piece_rect(piece)?;
-    canvas.copy(
-        texture,
-        piece_rect,
-        Rect::new(x as i32, y as i32, cell_width, cell_width),
-    )?;
+    let rect = Rect::new(x as i32, y as i32, CELL_WIDTH, CELL_WIDTH);
 
+    canvas.copy(pieces, get_piece_rect(piece)?, rect)?;
     Ok(())
 }
 
@@ -50,7 +45,7 @@ fn get_piece_rect(cpiece: &ColoredPiece) -> Result<Rect, String> {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 /// A colored piece in the chess board
 pub enum ColoredPiece {
     /// a black piece
@@ -61,7 +56,7 @@ pub enum ColoredPiece {
     Empty,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 /// a chess piece
 pub enum Piece {
     /// pawn

@@ -18,20 +18,15 @@ pub const BOARD_SIDE_LENGTH: u32 = 8;
 pub const WINDOW_SIZE: u32 = 512;
 /// board size inside the window
 pub const BOARD_SIZE: u32 = 400;
+/// cell width
+pub const CELL_WIDTH: u32 = BOARD_SIZE / BOARD_SIDE_LENGTH;
 
-fn render(canvas: &mut WindowCanvas, texture: &Texture) -> Result<(), String> {
+fn render(canvas: &mut WindowCanvas, board: &board::Board, pieces: &Texture) -> Result<(), String> {
     // fill background
     canvas.set_draw_color(Color::RGB(250, 229, 210));
     canvas.clear();
 
-    board::render_graphical_board(canvas)?;
-    piece::render_graphical_piece(
-        canvas,
-        &piece::ColoredPiece::W(piece::Piece::Queen),
-        texture,
-        0,
-        0,
-    )?;
+    board::render_graphical_board(canvas, board, pieces)?;
 
     canvas.present();
     Ok(())
@@ -59,7 +54,9 @@ fn main() -> Result<(), String> {
     let texture_creator = canvas.texture_creator();
     let pieces = texture_creator.load_texture("assets/chess_pieces.png")?;
 
-    render(&mut canvas, &pieces)?;
+    let board = board::Board::default();
+
+    render(&mut canvas, &board, &pieces)?;
 
     let mut event_pump = ctx.event_pump()?;
     'running: loop {
