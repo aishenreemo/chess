@@ -12,10 +12,6 @@ pub fn render_graphical_piece(
     column: u32,
     row: u32,
 ) -> Result<(), String> {
-    if &ColoredPiece::Empty == piece {
-        return Ok(());
-    }
-
     let (x, y) = board_pos_into_canvas_pos(column, row);
     let rect = Rect::new(x as i32, y as i32, CELL_WIDTH, CELL_WIDTH);
 

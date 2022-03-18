@@ -8,7 +8,7 @@ pub fn render_graphical_board(
     canvas: &mut WindowCanvas,
     board: &Board,
     pieces: &Texture,
-) -> Result<(), String> {
+) -> Result<(), Box<dyn std::error::Error>> {
     // stroke the chess board border
     let board_x = (WINDOW_SIZE as f64 - BOARD_SIZE as f64) / 2.0;
     let board_y = WINDOW_SIZE as f64 * 0.05;
@@ -43,6 +43,10 @@ pub fn render_graphical_board(
 
     // render pieces
     for (i, piece) in board.squares.iter().enumerate() {
+        if piece == &ColoredPiece::Empty {
+            continue;
+        }
+
         let column = i as u32 % BOARD_SIDE_LENGTH;
         let row = i as u32 / BOARD_SIDE_LENGTH;
 
