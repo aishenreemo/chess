@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use board::render_graphical_board;
 use board::{canvas_pos_into_board_pos, is_cursor_inside_board};
+use piece::ColoredPiece;
 
 /// chess board should has 8 each side
 pub const BOARD_SIDE_LENGTH: u32 = 8;
@@ -58,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let texture_creator = canvas.texture_creator();
     let pieces_texture = texture_creator.load_texture("assets/chess_pieces.png")?;
 
-    let board = board::Board::default();
+    let mut board = board::Board::default();
 
     render(&mut canvas, &board, &pieces_texture)?;
 
@@ -81,7 +82,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ..
                 } => {
                     if is_cursor_inside_board(x as u32, y as u32) {
-                        println!("{:?}", canvas_pos_into_board_pos(x as u32, y as u32))
+                        let (column, row) = canvas_pos_into_board_pos(x as u32, y as u32);
+                        let index = row * BOARD_SIDE_LENGTH + column;
+
+                        if let Some(square) = board.squares.get_mut(index as usize) {
+                            square.is_focused = square.piece != ColoredPiece::Empty;
+                        }
+
+                        render(&mut canvas, &board, &pieces_texture)?;
+
+                        if let Some(square) = board.squares.get_mut(index as usize) {
+                            square.is_focused = false;
+                        }
                     }
                 }
                 _ => {}
