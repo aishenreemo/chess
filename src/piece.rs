@@ -8,14 +8,14 @@ use sdl2::render::{Texture, WindowCanvas};
 pub fn render_graphical_piece(
     canvas: &mut WindowCanvas,
     piece: &ColoredPiece,
-    pieces: &Texture,
+    pieces_texture: &Texture,
     column: u32,
     row: u32,
 ) -> Result<(), String> {
     let (x, y) = board_pos_into_canvas_pos(column, row);
     let rect = Rect::new(x as i32, y as i32, CELL_WIDTH, CELL_WIDTH);
 
-    canvas.copy(pieces, get_piece_rect(piece)?, rect)?;
+    canvas.copy(pieces_texture, get_piece_rect(piece)?, rect)?;
     Ok(())
 }
 

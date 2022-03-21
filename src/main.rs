@@ -26,13 +26,13 @@ pub const CELL_WIDTH: u32 = BOARD_SIZE / BOARD_SIDE_LENGTH;
 fn render(
     canvas: &mut WindowCanvas,
     board: &board::Board,
-    pieces: &Texture,
+    pieces_texture: &Texture,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // fill background
     canvas.set_draw_color(Color::RGB(250, 229, 210));
     canvas.clear();
 
-    render_graphical_board(canvas, board, pieces)?;
+    render_graphical_board(canvas, board, pieces_texture)?;
 
     canvas.present();
     Ok(())
@@ -54,11 +54,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut canvas: WindowCanvas = window.into_canvas().build()?;
 
     let texture_creator = canvas.texture_creator();
-    let pieces = texture_creator.load_texture("assets/chess_pieces.png")?;
+    let pieces_texture = texture_creator.load_texture("assets/chess_pieces.png")?;
 
     let board = board::Board::default();
 
-    render(&mut canvas, &board, &pieces)?;
+    render(&mut canvas, &board, &pieces_texture)?;
 
     let mut event_pump = ctx.event_pump()?;
     'running: loop {

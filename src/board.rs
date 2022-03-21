@@ -7,7 +7,7 @@ use sdl2::render::{Texture, WindowCanvas};
 pub fn render_graphical_board(
     canvas: &mut WindowCanvas,
     board: &Board,
-    pieces: &Texture,
+    pieces_texture: &Texture,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // stroke the chess board border
     let board_x = (WINDOW_SIZE as f64 - BOARD_SIZE as f64) / 2.0;
@@ -50,7 +50,7 @@ pub fn render_graphical_board(
         let column = i as u32 % BOARD_SIDE_LENGTH;
         let row = i as u32 / BOARD_SIDE_LENGTH;
 
-        render_graphical_piece(canvas, piece, pieces, column, row)?;
+        render_graphical_piece(canvas, piece, pieces_texture, column, row)?;
     }
     Ok(())
 }
