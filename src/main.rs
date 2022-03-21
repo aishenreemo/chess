@@ -8,11 +8,13 @@ pub mod piece;
 use sdl2::event::Event;
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
+use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
 use sdl2::render::{Texture, WindowCanvas};
 use std::time::Duration;
 
 use board::render_graphical_board;
+use board::{canvas_pos_into_board_pos, is_cursor_inside_board};
 
 /// chess board should has 8 each side
 pub const BOARD_SIDE_LENGTH: u32 = 8;
@@ -60,15 +62,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     render(&mut canvas, &board, &pieces_texture)?;
 
-    let mut event_pump = ctx.event_pump()?;
+    let mut events = ctx.event_pump()?;
+
     'running: loop {
-        for event in event_pump.poll_iter() {
+        for event in events.poll_iter() {
             match event {
                 Event::Quit { .. } => break 'running,
+                // presses on keyboard
                 Event::KeyDown {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running,
+                // presses on mouse
+                Event::MouseButtonUp {
+                    mouse_btn: MouseButton::Left,
+                    x,
+                    y,
+                    ..
+                } => {
+                    if is_cursor_inside_board(x as u32, y as u32) {
+                        println!("{:?}", canvas_pos_into_board_pos(x as u32, y as u32))
+                    }
+                }
                 _ => {}
             }
         }

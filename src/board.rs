@@ -4,6 +4,9 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Texture, WindowCanvas};
 
+const BOARD_X: f64 = (WINDOW_SIZE as f64 - BOARD_SIZE as f64) / 2.0;
+const BOARD_Y: f64 = WINDOW_SIZE as f64 * 0.05;
+
 pub fn render_graphical_board(
     canvas: &mut WindowCanvas,
     board: &Board,
@@ -56,11 +59,25 @@ pub fn render_graphical_board(
 }
 
 pub fn board_pos_into_canvas_pos(column: u32, row: u32) -> (u32, u32) {
-    let board_x = (WINDOW_SIZE as f64 - BOARD_SIZE as f64) / 2.0;
-    let board_y = WINDOW_SIZE as f64 * 0.05;
     (
-        (column * CELL_WIDTH) + board_x as u32,
-        (row * CELL_WIDTH) + board_y as u32,
+        (column * CELL_WIDTH) + BOARD_X as u32,
+        (row * CELL_WIDTH) + BOARD_Y as u32,
+    )
+}
+
+pub fn is_cursor_inside_board(x: u32, y: u32) -> bool {
+    x > BOARD_X as u32
+        && x < BOARD_X as u32 + BOARD_SIZE
+        && y > BOARD_Y as u32
+        && y < BOARD_Y as u32 + BOARD_SIZE
+}
+
+pub fn canvas_pos_into_board_pos(x: u32, y: u32) -> (u32, u32) {
+    (
+        // column * width + offset = x
+        // (x - offset / width) = column
+        (x - BOARD_X as u32) / CELL_WIDTH as u32,
+        (y - BOARD_Y as u32) / CELL_WIDTH as u32,
     )
 }
 
