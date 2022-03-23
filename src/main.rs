@@ -77,7 +77,6 @@ fn main() -> Result<(), Error> {
     let pieces_texture = texture_creator.load_texture("assets/chess_pieces.png")?;
 
     let mut chessboard = board::Board::init();
-
     render(&mut canvas, &chessboard, &pieces_texture)?;
 
     let mut events = sdl_context.event_pump().unwrap();
@@ -86,15 +85,23 @@ fn main() -> Result<(), Error> {
             match handle_event(event) {
                 State::Quitting => break 'keep_alive,
                 State::Focus { column, row } => {
-                    if let Some(square) = chessboard.0.get_mut(row).unwrap().get_mut(column) {
+                    // unfocus the last focused square
+                    if let Some(lfs) = chessboard.last_focused_square {
+                        if let Some(square) =
+                            chessboard.squares.get_mut(lfs.1).unwrap().get_mut(lfs.0)
+                        {
+                            square.is_focused = false;
+                        }
+                    }
+
+                    // focus the square if its a piece
+                    if let Some(square) = chessboard.squares.get_mut(row).unwrap().get_mut(column) {
                         square.is_focused = square.piece != None;
                     }
 
+                    // memoize the pointers to unfocus later
+                    chessboard.last_focused_square = Some((column, row));
                     render(&mut canvas, &chessboard, &pieces_texture)?;
-
-                    if let Some(square) = chessboard.0.get_mut(row).unwrap().get_mut(column) {
-                        square.is_focused = false;
-                    }
                 }
                 State::Unknown => (),
             }

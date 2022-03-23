@@ -46,7 +46,7 @@ pub fn render_graphical_board(
 
     // render squares
     // for each row
-    for (row, squares) in board.0.into_iter().enumerate() {
+    for (row, squares) in board.squares.into_iter().enumerate() {
         // for each column
         for (column, square) in squares.into_iter().enumerate() {
             let (x, y) = into_absolute_position(column as u32, row as u32);
@@ -75,7 +75,10 @@ pub fn render_graphical_board(
     Ok(())
 }
 
-pub struct Board(pub [[Square; 8]; 8]);
+pub struct Board {
+    pub squares: [[Square; 8]; 8],
+    pub last_focused_square: Option<(usize, usize)>,
+}
 
 impl Board {
     pub fn init() -> Self {
@@ -124,7 +127,10 @@ impl Board {
             squares[7][column].piece = handle_color(column, PieceColor::White);
         }
 
-        Self(squares)
+        Self {
+            squares,
+            last_focused_square: None,
+        }
     }
 }
 
