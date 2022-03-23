@@ -46,8 +46,9 @@ pub fn render_graphical_board(
 
     // render squares
     // for each row
-    for row in 0..8 {
-        for (column, square) in board.0[row].into_iter().enumerate() {
+    for (row, squares) in board.0.into_iter().enumerate() {
+        // for each column
+        for (column, square) in squares.into_iter().enumerate() {
             let (x, y) = into_absolute_position(column as u32, row as u32);
 
             let square_rect = Rect::new(
