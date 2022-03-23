@@ -1,163 +1,134 @@
-use crate::piece::{render_graphical_piece, ColoredPiece, Piece};
-use crate::{BOARD_SIDE_LENGTH, BOARD_SIZE, CELL_WIDTH, WINDOW_SIZE};
+use crate::constants;
+use crate::piece::{self, Piece, PieceColor, PieceVariant};
+use crate::Error;
+
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Texture, WindowCanvas};
 
-const BOARD_X: f64 = (WINDOW_SIZE as f64 - BOARD_SIZE as f64) / 2.0;
-const BOARD_Y: f64 = WINDOW_SIZE as f64 * 0.05;
+pub fn is_cursor_inside_board(x: u32, y: u32) -> bool {
+    x > constants::BOARD_X_OFFSET as u32
+        && x < constants::BOARD_X_OFFSET as u32 + constants::BOARD_IN_WINDOW_SIZE
+        && y > constants::BOARD_Y_OFFSET as u32
+        && y < constants::BOARD_Y_OFFSET as u32 + constants::BOARD_IN_WINDOW_SIZE
+}
+
+/// convert relative position of board (column, row) into canvas position (x, y)
+pub fn into_absolute_position(column: u32, row: u32) -> (u32, u32) {
+    (
+        (column * constants::SQUARE_IN_BOARD_SIZE) + constants::BOARD_X_OFFSET as u32,
+        (row * constants::SQUARE_IN_BOARD_SIZE) + constants::BOARD_Y_OFFSET as u32,
+    )
+}
+
+/// convert absolute position of canvas (x, y) into board position (column, row)
+pub fn into_relative_position(x: u32, y: u32) -> (u32, u32) {
+    (
+        (x - constants::BOARD_X_OFFSET as u32) / constants::SQUARE_IN_BOARD_SIZE as u32,
+        (y - constants::BOARD_Y_OFFSET as u32) / constants::SQUARE_IN_BOARD_SIZE as u32,
+    )
+}
 
 pub fn render_graphical_board(
     canvas: &mut WindowCanvas,
     board: &Board,
     pieces_texture: &Texture,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Error> {
     // stroke the chess board border
-    let board_rect = Rect::new(BOARD_X as i32, BOARD_Y as i32, BOARD_SIZE, BOARD_SIZE);
+    let board_rect = Rect::new(
+        constants::BOARD_X_OFFSET as i32,
+        constants::BOARD_Y_OFFSET as i32,
+        constants::BOARD_IN_WINDOW_SIZE,
+        constants::BOARD_IN_WINDOW_SIZE,
+    );
     canvas.set_draw_color(Color::RGB(122, 95, 71));
     canvas.draw_rect(board_rect)?;
 
     // render squares
-    for square in board.squares.iter() {
-        let column = square.index % BOARD_SIDE_LENGTH;
-        let row = square.index / BOARD_SIDE_LENGTH;
+    // for each row
+    for row in 0..8 {
+        for (column, square) in board.0[row].into_iter().enumerate() {
+            let (x, y) = into_absolute_position(column as u32, row as u32);
 
-        // calculate the position of the current cell
-        let (x, y) = board_pos_into_canvas_pos(column, row);
-        let board_rect = Rect::new(x as i32, y as i32, CELL_WIDTH, CELL_WIDTH);
+            let square_rect = Rect::new(
+                x as i32,
+                y as i32,
+                constants::SQUARE_IN_BOARD_SIZE,
+                constants::SQUARE_IN_BOARD_SIZE,
+            );
 
-        if square.is_focused {
-            canvas.set_draw_color(Color::RGB(104, 113, 143));
-            canvas.fill_rect(board_rect)?;
-        } else if square.index % 2 != 0 && row % 2 != 0 || square.index % 2 == 0 && row % 2 == 0 {
-            canvas.set_draw_color(Color::RGB(122, 95, 71));
-            canvas.fill_rect(board_rect)?;
+            if square.is_focused {
+                canvas.set_draw_color(Color::RGB(104, 113, 143));
+                canvas.fill_rect(square_rect)?;
+            } else if column % 2 != 0 && row % 2 != 0 || column % 2 == 0 && row % 2 == 0 {
+                canvas.set_draw_color(Color::RGB(122, 95, 71));
+                canvas.fill_rect(square_rect)?;
+            }
+
+            if let Some(ref p) = square.piece {
+                piece::render_graphical_piece(canvas, pieces_texture, p, x, y)?
+            }
         }
-    }
-
-    for square in board.squares.iter() {
-        if square.piece == ColoredPiece::Empty {
-            continue;
-        }
-
-        let column = square.index % BOARD_SIDE_LENGTH;
-        let row = square.index / BOARD_SIDE_LENGTH;
-        render_graphical_piece(canvas, &square.piece, pieces_texture, column, row)?;
     }
 
     Ok(())
 }
 
-pub fn board_pos_into_canvas_pos(column: u32, row: u32) -> (u32, u32) {
-    (
-        (column * CELL_WIDTH) + BOARD_X as u32,
-        (row * CELL_WIDTH) + BOARD_Y as u32,
-    )
-}
-
-pub fn is_cursor_inside_board(x: u32, y: u32) -> bool {
-    x > BOARD_X as u32
-        && x < BOARD_X as u32 + BOARD_SIZE
-        && y > BOARD_Y as u32
-        && y < BOARD_Y as u32 + BOARD_SIZE
-}
-
-pub fn canvas_pos_into_board_pos(x: u32, y: u32) -> (u32, u32) {
-    (
-        // column * width + offset = x
-        // (x - offset / width) = column
-        (x - BOARD_X as u32) / CELL_WIDTH as u32,
-        (y - BOARD_Y as u32) / CELL_WIDTH as u32,
-    )
-}
-
-pub struct Board {
-    pub squares: Vec<Square>,
-}
+pub struct Board(pub [[Square; 8]; 8]);
 
 impl Board {
-    fn init_squares() -> Vec<Square> {
-        let start_game_notation: Vec<char> =
-            "CHBQKBHCPPPPPPPP////ppppppppchbqkbhc".chars().collect();
-        let mut squares: Vec<Square> = vec![];
-        let mut cursor = 0;
+    pub fn init() -> Self {
+        let mut squares = [[Square {
+            piece: None,
+            is_focused: false,
+        }; 8]; 8];
+        let handle_color = |x: usize, color: PieceColor| match x {
+            0 | 7 => Some(Piece {
+                variant: PieceVariant::Castle,
+                color,
+            }),
+            1 | 6 => Some(Piece {
+                variant: PieceVariant::Knight,
+                color,
+            }),
+            2 | 5 => Some(Piece {
+                variant: PieceVariant::Bishop,
+                color,
+            }),
+            3 => Some(Piece {
+                variant: PieceVariant::Queen,
+                color,
+            }),
+            4 => Some(Piece {
+                variant: PieceVariant::King,
+                color,
+            }),
+            _ => unreachable!(),
+        };
 
-        while cursor < start_game_notation.len() {
-            use ColoredPiece::*;
-            use Piece::*;
+        // for each file
+        for column in 0..8 {
+            // everything in rank 1 will be a black pawn
+            squares[1][column].piece = Some(Piece {
+                variant: PieceVariant::Pawn,
+                color: PieceColor::Black,
+            });
+            // everything in rank 6 will be a white pawn
+            squares[6][column].piece = Some(Piece {
+                variant: PieceVariant::Pawn,
+                color: PieceColor::White,
+            });
 
-            if squares.len() > 64 {
-                panic!("pieces overflow")
-            }
-
-            match start_game_notation.get(cursor) {
-                Some(c) if c.is_numeric() => {
-                    let num = c.to_digit(10).unwrap();
-                    for _ in 0..num {
-                        squares.push(Square::empty(squares.len()));
-                    }
-                }
-                Some(&'/') => {
-                    let num = 8 - (squares.len() % 8);
-                    for _ in 0..num {
-                        squares.push(Square::empty(squares.len()));
-                    }
-                }
-                Some(&'C') => squares.push(Square::piece(squares.len(), B(Castle))),
-                Some(&'H') => squares.push(Square::piece(squares.len(), B(Knight))),
-                Some(&'B') => squares.push(Square::piece(squares.len(), B(Bishop))),
-                Some(&'Q') => squares.push(Square::piece(squares.len(), B(Queen))),
-                Some(&'K') => squares.push(Square::piece(squares.len(), B(King))),
-                Some(&'P') => squares.push(Square::piece(squares.len(), B(Pawn))),
-                Some(&'c') => squares.push(Square::piece(squares.len(), W(Castle))),
-                Some(&'h') => squares.push(Square::piece(squares.len(), W(Knight))),
-                Some(&'b') => squares.push(Square::piece(squares.len(), W(Bishop))),
-                Some(&'q') => squares.push(Square::piece(squares.len(), W(Queen))),
-                Some(&'k') => squares.push(Square::piece(squares.len(), W(King))),
-                Some(&'p') => squares.push(Square::piece(squares.len(), W(Pawn))),
-                Some(c) => panic!("unexpected '{}'", c),
-                _ => unreachable!(),
-            }
-            cursor += 1;
+            squares[0][column].piece = handle_color(column, PieceColor::Black);
+            squares[7][column].piece = handle_color(column, PieceColor::White);
         }
 
-        if squares.len() != 64 {
-            panic!("expected 64 squares, got {}\n", squares.len());
-        }
-
-        squares
+        Self(squares)
     }
 }
 
-impl Default for Board {
-    fn default() -> Self {
-        Self {
-            squares: Board::init_squares(),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Clone, Copy)]
 pub struct Square {
-    pub piece: ColoredPiece,
+    pub piece: Option<Piece>,
     pub is_focused: bool,
-    pub index: u32,
-}
-
-impl Square {
-    fn empty(index: usize) -> Self {
-        Self {
-            piece: ColoredPiece::Empty,
-            index: index as u32,
-            is_focused: false,
-        }
-    }
-
-    fn piece(index: usize, piece: ColoredPiece) -> Self {
-        Self {
-            piece,
-            index: index as u32,
-            is_focused: false,
-        }
-    }
 }

@@ -1,8 +1,5 @@
-//! chess gaem
-//! simple chess implementation written in rust
-#![deny(missing_docs)]
-
 mod board;
+mod constants;
 pub mod piece;
 
 use sdl2::event::Event;
@@ -11,20 +8,45 @@ use sdl2::keyboard::Keycode;
 use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
 use sdl2::render::{Texture, WindowCanvas};
-use std::time::Duration;
 
-use board::render_graphical_board;
-use board::{canvas_pos_into_board_pos, is_cursor_inside_board};
-use piece::ColoredPiece;
+pub type Error = Box<dyn ::std::error::Error>;
 
-/// chess board should has 8 each side
-pub const BOARD_SIDE_LENGTH: u32 = 8;
-/// window size
-pub const WINDOW_SIZE: u32 = 512;
-/// board size inside the window
-pub const BOARD_SIZE: u32 = 400;
-/// canvas width per square in board
-pub const CELL_WIDTH: u32 = BOARD_SIZE / BOARD_SIDE_LENGTH;
+enum State {
+    Quitting,
+    Focus { column: usize, row: usize },
+    Unknown,
+}
+
+fn handle_mouse_keypress(mouse_btn: MouseButton, x: i32, y: i32) -> State {
+    match mouse_btn {
+        MouseButton::Left if board::is_cursor_inside_board(x as u32, y as u32) => {
+            let (column, row) = board::into_relative_position(x as u32, y as u32);
+            State::Focus {
+                column: column as usize,
+                row: row as usize,
+            }
+        }
+        _ => State::Unknown,
+    }
+}
+
+fn handle_keyboard_keypress(keycode: Option<Keycode>) -> State {
+    match keycode {
+        Some(Keycode::Escape) => State::Quitting,
+        _ => State::Unknown,
+    }
+}
+
+fn handle_event(event: sdl2::event::Event) -> State {
+    match event {
+        Event::Quit { .. } => State::Quitting,
+        Event::KeyDown { keycode, .. } => handle_keyboard_keypress(keycode),
+        Event::MouseButtonDown {
+            mouse_btn, x, y, ..
+        } => handle_mouse_keypress(mouse_btn, x, y),
+        _ => State::Unknown,
+    }
+}
 
 fn render(
     canvas: &mut WindowCanvas,
@@ -35,72 +57,51 @@ fn render(
     canvas.set_draw_color(Color::RGB(250, 229, 210));
     canvas.clear();
 
-    render_graphical_board(canvas, board, pieces_texture)?;
+    board::render_graphical_board(canvas, board, pieces_texture)?;
 
     canvas.present();
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // sdl2 context
-    let ctx = sdl2::init()?;
-
-    let video_subsystem = ctx.video()?;
-
-    // window
+fn main() -> Result<(), Error> {
+    let sdl_context = sdl2::init()?;
+    let video_subsystem = sdl_context.video()?;
     let window = video_subsystem
-        .window("chess gaem", WINDOW_SIZE, WINDOW_SIZE)
+        .window("chess", constants::WINDOW_SIZE, constants::WINDOW_SIZE)
         .position_centered()
         .build()?;
 
-    // canvas
     let mut canvas: WindowCanvas = window.into_canvas().build()?;
 
     let texture_creator = canvas.texture_creator();
     let pieces_texture = texture_creator.load_texture("assets/chess_pieces.png")?;
 
-    let mut board = board::Board::default();
+    let mut chessboard = board::Board::init();
 
-    render(&mut canvas, &board, &pieces_texture)?;
+    render(&mut canvas, &chessboard, &pieces_texture)?;
 
-    let mut events = ctx.event_pump()?;
-
-    'running: loop {
+    let mut events = sdl_context.event_pump().unwrap();
+    'keep_alive: loop {
         for event in events.poll_iter() {
-            match event {
-                Event::Quit { .. } => break 'running,
-                // presses on keyboard
-                Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
-                // presses on mouse
-                Event::MouseButtonUp {
-                    mouse_btn: MouseButton::Left,
-                    x,
-                    y,
-                    ..
-                } => {
-                    if is_cursor_inside_board(x as u32, y as u32) {
-                        let (column, row) = canvas_pos_into_board_pos(x as u32, y as u32);
-                        let index = row * BOARD_SIDE_LENGTH + column;
+            match handle_event(event) {
+                State::Quitting => break 'keep_alive,
+                State::Focus { column, row } => {
+                    if let Some(square) = chessboard.0.get_mut(row).unwrap().get_mut(column) {
+                        square.is_focused = square.piece != None;
+                    }
 
-                        if let Some(square) = board.squares.get_mut(index as usize) {
-                            square.is_focused = square.piece != ColoredPiece::Empty;
-                        }
+                    render(&mut canvas, &chessboard, &pieces_texture)?;
 
-                        render(&mut canvas, &board, &pieces_texture)?;
-
-                        if let Some(square) = board.squares.get_mut(index as usize) {
-                            square.is_focused = false;
-                        }
+                    if let Some(square) = chessboard.0.get_mut(row).unwrap().get_mut(column) {
+                        square.is_focused = false;
                     }
                 }
-                _ => {}
+                State::Unknown => (),
             }
         }
 
-        std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        // 60 fps
+        ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 60));
     }
 
     Ok(())

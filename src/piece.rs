@@ -1,70 +1,61 @@
-//!
-use crate::board::board_pos_into_canvas_pos;
-use crate::CELL_WIDTH;
+use crate::constants;
 use sdl2::rect::Rect;
 use sdl2::render::{Texture, WindowCanvas};
 
-/// render a graphical piece to canvas
 pub fn render_graphical_piece(
     canvas: &mut WindowCanvas,
-    piece: &ColoredPiece,
     pieces_texture: &Texture,
-    column: u32,
-    row: u32,
+    piece: &Piece,
+    x: u32,
+    y: u32,
 ) -> Result<(), String> {
-    let (x, y) = board_pos_into_canvas_pos(column, row);
-    let rect = Rect::new(x as i32, y as i32, CELL_WIDTH, CELL_WIDTH);
+    let rect = Rect::new(
+        x as i32,
+        y as i32,
+        constants::SQUARE_IN_BOARD_SIZE,
+        constants::SQUARE_IN_BOARD_SIZE,
+    );
 
-    canvas.copy(pieces_texture, get_piece_rect(piece)?, rect)?;
+    canvas.copy(pieces_texture, get_piece_rect(piece), rect)?;
     Ok(())
 }
 
-fn get_piece_rect(cpiece: &ColoredPiece) -> Result<Rect, String> {
-    match cpiece {
-        ColoredPiece::W(piece) => match piece {
-            Piece::Pawn => Ok(Rect::new(45 * 5, 0, 45, 45)),
-            Piece::Bishop => Ok(Rect::new(45 * 2, 0, 45, 45)),
-            Piece::Knight => Ok(Rect::new(45 * 3, 0, 45, 45)),
-            Piece::Castle => Ok(Rect::new(45 * 4, 0, 45, 45)),
-            Piece::Queen => Ok(Rect::new(45, 0, 45, 45)),
-            Piece::King => Ok(Rect::new(0, 0, 45, 45)),
-        },
-        ColoredPiece::B(piece) => match piece {
-            Piece::Pawn => Ok(Rect::new(45 * 5, 45, 45, 45)),
-            Piece::Bishop => Ok(Rect::new(45 * 2, 45, 45, 45)),
-            Piece::Knight => Ok(Rect::new(45 * 3, 45, 45, 45)),
-            Piece::Castle => Ok(Rect::new(45 * 4, 45, 45, 45)),
-            Piece::Queen => Ok(Rect::new(45, 45, 45, 45)),
-            Piece::King => Ok(Rect::new(0, 45, 45, 45)),
-        },
-        ColoredPiece::Empty => Err("Unknown piece.".to_owned()),
-    }
+fn get_piece_rect(piece: &Piece) -> Rect {
+    let texture_width: u32 = 45;
+    let x: u32 = match piece.variant {
+        PieceVariant::Queen => 0,
+        PieceVariant::King => texture_width,
+        PieceVariant::Bishop => texture_width * 2,
+        PieceVariant::Knight => texture_width * 3,
+        PieceVariant::Castle => texture_width * 4,
+        PieceVariant::Pawn => texture_width * 5,
+    };
+    let y: u32 = match piece.color {
+        PieceColor::Black => texture_width,
+        PieceColor::White => 0,
+    };
+
+    Rect::new(x as i32, y as i32, texture_width, texture_width)
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-/// A colored piece in the chess board
-pub enum ColoredPiece {
-    /// a black piece
-    B(Piece),
-    /// a white piece
-    W(Piece),
-    /// neutral
-    Empty,
+#[derive(Clone, Copy, PartialEq)]
+pub struct Piece {
+    pub color: PieceColor,
+    pub variant: PieceVariant,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-/// a chess piece
-pub enum Piece {
-    /// pawn
+#[derive(Clone, Copy, PartialEq)]
+pub enum PieceColor {
+    Black,
+    White,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum PieceVariant {
     Pawn,
-    /// bishop
     Bishop,
-    /// horse / knight
     Knight,
-    /// rook / castle
     Castle,
-    /// queen
     Queen,
-    /// king
     King,
 }
