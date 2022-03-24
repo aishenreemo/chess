@@ -1,4 +1,5 @@
 mod board;
+mod cache;
 mod constants;
 pub mod piece;
 
@@ -52,12 +53,13 @@ fn render(
     canvas: &mut WindowCanvas,
     board: &board::Board,
     pieces_texture: &Texture,
+    cached: &crate::cache::Cache,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // fill background
     canvas.set_draw_color(Color::RGB(250, 229, 210));
     canvas.clear();
 
-    board::render_graphical_board(canvas, board, pieces_texture)?;
+    board::render_graphical_board(canvas, board, pieces_texture, cached)?;
 
     canvas.present();
     Ok(())
@@ -76,8 +78,9 @@ fn main() -> Result<(), Error> {
     let texture_creator = canvas.texture_creator();
     let pieces_texture = texture_creator.load_texture("assets/chess_pieces.png")?;
 
-    let mut chessboard = board::Board::init();
-    render(&mut canvas, &chessboard, &pieces_texture)?;
+    let mut cached = cache::Cache::init();
+    let chessboard = board::Board::init();
+    render(&mut canvas, &chessboard, &pieces_texture, &cached)?;
 
     let mut events = sdl_context.event_pump().unwrap();
     'keep_alive: loop {
@@ -86,22 +89,21 @@ fn main() -> Result<(), Error> {
                 State::Quitting => break 'keep_alive,
                 State::Focus { column, row } => {
                     // unfocus the last focused square
-                    if let Some(lfs) = chessboard.last_focused_square {
-                        if let Some(square) =
-                            chessboard.squares.get_mut(lfs.1).unwrap().get_mut(lfs.0)
-                        {
-                            square.is_focused = false;
+                    if let Some(lfs) = cached.focused_square {
+                        if chessboard.get_square(lfs.0, lfs.1).is_some() {
+                            cached.focused_square = None;
                         }
                     }
 
                     // focus the square if its a piece
-                    if let Some(square) = chessboard.squares.get_mut(row).unwrap().get_mut(column) {
-                        square.is_focused = square.piece != None;
+                    if let Some(square) = chessboard.get_square(column, row) {
+                        if square.piece != None {
+                            // memoize the pointers to unfocus later
+                            cached.focused_square = Some((column, row));
+                        }
                     }
 
-                    // memoize the pointers to unfocus later
-                    chessboard.last_focused_square = Some((column, row));
-                    render(&mut canvas, &chessboard, &pieces_texture)?;
+                    render(&mut canvas, &chessboard, &pieces_texture, &cached)?;
                 }
                 State::Unknown => (),
             }

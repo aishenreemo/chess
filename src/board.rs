@@ -33,6 +33,7 @@ pub fn render_graphical_board(
     canvas: &mut WindowCanvas,
     board: &Board,
     pieces_texture: &Texture,
+    cached: &crate::cache::Cache,
 ) -> Result<(), Error> {
     // stroke the chess board border
     let board_rect = Rect::new(
@@ -58,7 +59,7 @@ pub fn render_graphical_board(
                 constants::SQUARE_IN_BOARD_SIZE,
             );
 
-            if square.is_focused {
+            if cached.focused_square == Some((column, row)) {
                 canvas.set_draw_color(Color::RGB(104, 113, 143));
                 canvas.fill_rect(square_rect)?;
             } else if column % 2 != 0 && row % 2 != 0 || column % 2 == 0 && row % 2 == 0 {
@@ -77,7 +78,6 @@ pub fn render_graphical_board(
 
 pub struct Board {
     pub squares: [[Square; 8]; 8],
-    pub last_focused_square: Option<(usize, usize)>,
 }
 
 impl Board {
@@ -127,10 +127,11 @@ impl Board {
             squares[7][column].piece = handle_color(column, PieceColor::White);
         }
 
-        Self {
-            squares,
-            last_focused_square: None,
-        }
+        Self { squares }
+    }
+
+    pub fn get_square(&self, column: usize, row: usize) -> Option<&Square> {
+        self.squares.get(row)?.get(column)
     }
 }
 
