@@ -30,11 +30,11 @@ pub fn into_relative_position(x: u32, y: u32) -> (u32, u32) {
 }
 
 pub fn move_board_piece(
-    chessboard: &mut Board, 
+    chessboard: &mut Board,
     prev_column: usize,
     prev_row: usize,
     column: usize,
-    row: usize
+    row: usize,
 ) {
     chessboard.get_square_mut(column, row).unwrap().piece = chessboard
         .get_square_mut(prev_column, prev_row)
@@ -150,10 +150,6 @@ impl Board {
 
     pub fn get_square_mut(&mut self, column: usize, row: usize) -> Option<&mut Square> {
         self.squares.get_mut(row)?.get_mut(column)
-    }
-
-    pub fn get_piece(&self, column: usize, row: usize) -> Option<Piece> {
-        self.get_square(column, row)?.piece
     }
 }
 

@@ -102,18 +102,8 @@ fn handle_state(
 ) -> Result<(), Error> {
     match state {
         State::Focus { column, row } => {
-            // unfocus the last focused square
-            if cached.focused_square.is_some() {
-                cached.focused_square = None;
-            }
-
-            // focus the square if it is a current turn's piece
-            if let Some(piece) = chessboard.get_piece(column, row) {
-                if piece.color == cached.current_turn {
-                    cached.focused_square = Some((column, row));
-                }
-            }
-
+            // focus the square
+            cached.focused_square = Some((column, row));
             render(canvas, chessboard, pieces_texture, cached)?;
         }
         State::Unfocus => {
@@ -134,13 +124,14 @@ fn handle_state(
             } else {
                 PieceColor::White
             };
+
             // unfocus the focused square
             cached.focused_square = None;
-            
+
             render(canvas, chessboard, pieces_texture, cached)?;
         }
         State::Unknown => (),
-        State::Quitting => unreachable!(),
+        _ => unreachable!(),
     }
     Ok(())
 }
