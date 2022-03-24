@@ -62,7 +62,7 @@ pub fn render_graphical_board(
             if cached.focused_square == Some((column, row)) {
                 canvas.set_draw_color(Color::RGB(104, 113, 143));
                 canvas.fill_rect(square_rect)?;
-            } else if column % 2 != 0 && row % 2 != 0 || column % 2 == 0 && row % 2 == 0 {
+            } else if column % 2 != 0 && row % 2 == 0 || column % 2 == 0 && row % 2 != 0 {
                 canvas.set_draw_color(Color::RGB(122, 95, 71));
                 canvas.fill_rect(square_rect)?;
             }
@@ -100,11 +100,11 @@ impl Board {
                 color,
             }),
             3 => Some(Piece {
-                variant: PieceVariant::Queen,
+                variant: PieceVariant::King,
                 color,
             }),
             4 => Some(Piece {
-                variant: PieceVariant::King,
+                variant: PieceVariant::Queen,
                 color,
             }),
             _ => unreachable!(),
@@ -132,6 +132,14 @@ impl Board {
 
     pub fn get_square(&self, column: usize, row: usize) -> Option<&Square> {
         self.squares.get(row)?.get(column)
+    }
+
+    pub fn get_square_mut(&mut self, column: usize, row: usize) -> Option<&mut Square> {
+        self.squares.get_mut(row)?.get_mut(column)
+    }
+
+    pub fn get_piece(&self, column: usize, row: usize) -> Option<Piece> {
+        self.get_square(column, row)?.piece
     }
 }
 

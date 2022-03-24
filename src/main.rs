@@ -3,28 +3,68 @@ mod cache;
 mod constants;
 pub mod piece;
 
+use piece::PieceColor;
 use sdl2::event::Event;
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
 use sdl2::render::{Texture, WindowCanvas};
-
 pub type Error = Box<dyn ::std::error::Error>;
 
 enum State {
     Quitting,
-    Focus { column: usize, row: usize },
+    Focus {
+        column: usize,
+        row: usize,
+    },
+    Unfocus,
+    Move {
+        prev_column: usize,
+        prev_row: usize,
+        column: usize,
+        row: usize,
+    },
     Unknown,
 }
 
-fn handle_mouse_keypress(mouse_btn: MouseButton, x: i32, y: i32) -> State {
+fn handle_mouse_keypress(
+    mouse_btn: MouseButton,
+    x: i32,
+    y: i32,
+    cached: &cache::Cache,
+    chessboard: &board::Board,
+) -> State {
+    let (x, y) = (x as u32, y as u32);
     match mouse_btn {
-        MouseButton::Left if board::is_cursor_inside_board(x as u32, y as u32) => {
-            let (column, row) = board::into_relative_position(x as u32, y as u32);
-            State::Focus {
-                column: column as usize,
-                row: row as usize,
+        MouseButton::Left if board::is_cursor_inside_board(x, y) => {
+            let (column, row) = board::into_relative_position(x, y);
+            let (column, row) = (column as usize, row as usize);
+
+            let square = chessboard.get_square(column, row).unwrap();
+            let is_focused = cached.focused_square.is_some();
+            match square.piece {
+                Some(piece) if piece.color != cached.current_turn && is_focused => {
+                    let prev_move = cached.focused_square.unwrap();
+                    State::Move {
+                        prev_column: prev_move.0,
+                        prev_row: prev_move.1,
+                        column,
+                        row,
+                    }
+                }
+                Some(piece) if piece.color != cached.current_turn && !is_focused => State::Unfocus,
+                Some(piece) if piece.color == cached.current_turn => State::Focus { column, row },
+                None if is_focused => {
+                    let prev_move = cached.focused_square.unwrap();
+                    State::Move {
+                        prev_column: prev_move.0,
+                        prev_row: prev_move.1,
+                        column,
+                        row,
+                    }
+                }
+                _ => State::Unknown,
             }
         }
         _ => State::Unknown,
@@ -38,13 +78,17 @@ fn handle_keyboard_keypress(keycode: Option<Keycode>) -> State {
     }
 }
 
-fn handle_event(event: sdl2::event::Event) -> State {
+fn handle_event(
+    event: sdl2::event::Event,
+    cached: &cache::Cache,
+    chessboard: &board::Board,
+) -> State {
     match event {
         Event::Quit { .. } => State::Quitting,
         Event::KeyDown { keycode, .. } => handle_keyboard_keypress(keycode),
         Event::MouseButtonDown {
             mouse_btn, x, y, ..
-        } => handle_mouse_keypress(mouse_btn, x, y),
+        } => handle_mouse_keypress(mouse_btn, x, y, cached, chessboard),
         _ => State::Unknown,
     }
 }
@@ -79,30 +123,49 @@ fn main() -> Result<(), Error> {
     let pieces_texture = texture_creator.load_texture("assets/chess_pieces.png")?;
 
     let mut cached = cache::Cache::init();
-    let chessboard = board::Board::init();
+    let mut chessboard = board::Board::init();
     render(&mut canvas, &chessboard, &pieces_texture, &cached)?;
 
     let mut events = sdl_context.event_pump().unwrap();
     'keep_alive: loop {
         for event in events.poll_iter() {
-            match handle_event(event) {
+            match handle_event(event, &cached, &chessboard) {
                 State::Quitting => break 'keep_alive,
                 State::Focus { column, row } => {
                     // unfocus the last focused square
-                    if let Some(lfs) = cached.focused_square {
-                        if chessboard.get_square(lfs.0, lfs.1).is_some() {
-                            cached.focused_square = None;
-                        }
+                    if cached.focused_square.is_some() {
+                        cached.focused_square = None;
                     }
 
-                    // focus the square if its a piece
-                    if let Some(square) = chessboard.get_square(column, row) {
-                        if square.piece != None {
-                            // memoize the pointers to unfocus later
+                    // focus the square if it is a current turn's piece
+                    if let Some(piece) = chessboard.get_piece(column, row) {
+                        if piece.color == cached.current_turn {
                             cached.focused_square = Some((column, row));
                         }
                     }
 
+                    render(&mut canvas, &chessboard, &pieces_texture, &cached)?;
+                }
+                State::Unfocus => {
+                    cached.focused_square = None;
+                }
+                State::Move {
+                    prev_column,
+                    prev_row,
+                    column,
+                    row,
+                } => {
+                    chessboard.get_square_mut(column, row).unwrap().piece = chessboard
+                        .get_square_mut(prev_column, prev_row)
+                        .unwrap()
+                        .piece
+                        .take();
+                    cached.current_turn = if cached.current_turn == PieceColor::White {
+                        PieceColor::Black
+                    } else {
+                        PieceColor::White
+                    };
+                    cached.focused_square = None;
                     render(&mut canvas, &chessboard, &pieces_texture, &cached)?;
                 }
                 State::Unknown => (),
