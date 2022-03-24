@@ -93,12 +93,64 @@ fn handle_event(
     }
 }
 
+fn handle_state(
+    state: State,
+    canvas: &mut WindowCanvas,
+    pieces_texture: &Texture,
+    cached: &mut cache::Cache,
+    chessboard: &mut board::Board,
+) -> Result<(), Error> {
+    match state {
+        State::Focus { column, row } => {
+            // unfocus the last focused square
+            if cached.focused_square.is_some() {
+                cached.focused_square = None;
+            }
+
+            // focus the square if it is a current turn's piece
+            if let Some(piece) = chessboard.get_piece(column, row) {
+                if piece.color == cached.current_turn {
+                    cached.focused_square = Some((column, row));
+                }
+            }
+
+            render(canvas, chessboard, pieces_texture, cached)?;
+        }
+        State::Unfocus => {
+            cached.focused_square = None;
+        }
+        State::Move {
+            prev_column,
+            prev_row,
+            column,
+            row,
+        } => {
+            // move the piece
+            board::move_board_piece(chessboard, prev_column, prev_row, column, row);
+
+            // change the turn
+            cached.current_turn = if cached.current_turn == PieceColor::White {
+                PieceColor::Black
+            } else {
+                PieceColor::White
+            };
+            // unfocus the focused square
+            cached.focused_square = None;
+            
+            render(canvas, chessboard, pieces_texture, cached)?;
+        }
+        State::Unknown => (),
+        State::Quitting => unreachable!(),
+    }
+    Ok(())
+}
+
 fn render(
     canvas: &mut WindowCanvas,
     board: &board::Board,
     pieces_texture: &Texture,
     cached: &crate::cache::Cache,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Error> {
     // fill background
     canvas.set_draw_color(Color::RGB(250, 229, 210));
     canvas.clear();
@@ -131,44 +183,13 @@ fn main() -> Result<(), Error> {
         for event in events.poll_iter() {
             match handle_event(event, &cached, &chessboard) {
                 State::Quitting => break 'keep_alive,
-                State::Focus { column, row } => {
-                    // unfocus the last focused square
-                    if cached.focused_square.is_some() {
-                        cached.focused_square = None;
-                    }
-
-                    // focus the square if it is a current turn's piece
-                    if let Some(piece) = chessboard.get_piece(column, row) {
-                        if piece.color == cached.current_turn {
-                            cached.focused_square = Some((column, row));
-                        }
-                    }
-
-                    render(&mut canvas, &chessboard, &pieces_texture, &cached)?;
-                }
-                State::Unfocus => {
-                    cached.focused_square = None;
-                }
-                State::Move {
-                    prev_column,
-                    prev_row,
-                    column,
-                    row,
-                } => {
-                    chessboard.get_square_mut(column, row).unwrap().piece = chessboard
-                        .get_square_mut(prev_column, prev_row)
-                        .unwrap()
-                        .piece
-                        .take();
-                    cached.current_turn = if cached.current_turn == PieceColor::White {
-                        PieceColor::Black
-                    } else {
-                        PieceColor::White
-                    };
-                    cached.focused_square = None;
-                    render(&mut canvas, &chessboard, &pieces_texture, &cached)?;
-                }
-                State::Unknown => (),
+                other_state => handle_state(
+                    other_state,
+                    &mut canvas,
+                    &pieces_texture,
+                    &mut cached,
+                    &mut chessboard,
+                )?,
             }
         }
 

@@ -29,6 +29,20 @@ pub fn into_relative_position(x: u32, y: u32) -> (u32, u32) {
     )
 }
 
+pub fn move_board_piece(
+    chessboard: &mut Board, 
+    prev_column: usize,
+    prev_row: usize,
+    column: usize,
+    row: usize
+) {
+    chessboard.get_square_mut(column, row).unwrap().piece = chessboard
+        .get_square_mut(prev_column, prev_row)
+        .unwrap()
+        .piece
+        .take();
+}
+
 pub fn render_graphical_board(
     canvas: &mut WindowCanvas,
     board: &Board,
