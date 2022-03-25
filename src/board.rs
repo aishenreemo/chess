@@ -96,10 +96,24 @@ pub struct Board {
 
 impl Board {
     pub fn init() -> Self {
+        let squares = [[Square {
+            piece: None,
+            is_focused: false,
+        }; 8]; 8];
+
+        Self { squares }
+    }
+
+    pub fn color(teamcolor: PieceColor) -> Self {
         let mut squares = [[Square {
             piece: None,
             is_focused: false,
         }; 8]; 8];
+
+        let piece_exception_variant = match teamcolor {
+            PieceColor::White => (PieceVariant::King, PieceVariant::Queen),
+            PieceColor::Black => (PieceVariant::Queen, PieceVariant::King),
+        };
         let handle_color = |x: usize, color: PieceColor| match x {
             0 | 7 => Some(Piece {
                 variant: PieceVariant::Castle,
@@ -114,31 +128,36 @@ impl Board {
                 color,
             }),
             3 => Some(Piece {
-                variant: PieceVariant::King,
+                variant: piece_exception_variant.0,
                 color,
             }),
             4 => Some(Piece {
-                variant: PieceVariant::Queen,
+                variant: piece_exception_variant.1,
                 color,
             }),
             _ => unreachable!(),
         };
 
+        let rows = match teamcolor {
+            PieceColor::White => (1, 6, 0, 7),
+            PieceColor::Black => (6, 1, 7, 0),
+        };
+
         // for each file
         for column in 0..8 {
-            // everything in rank 1 will be a black pawn
-            squares[1][column].piece = Some(Piece {
+            // everything in rank 1 or 6 will be a black pawn
+            squares[rows.0][column].piece = Some(Piece {
                 variant: PieceVariant::Pawn,
                 color: PieceColor::Black,
             });
-            // everything in rank 6 will be a white pawn
-            squares[6][column].piece = Some(Piece {
+            // everything in rank 6 or 1 will be a white pawn
+            squares[rows.1][column].piece = Some(Piece {
                 variant: PieceVariant::Pawn,
                 color: PieceColor::White,
             });
 
-            squares[0][column].piece = handle_color(column, PieceColor::Black);
-            squares[7][column].piece = handle_color(column, PieceColor::White);
+            squares[rows.2][column].piece = handle_color(column, PieceColor::Black);
+            squares[rows.3][column].piece = handle_color(column, PieceColor::White);
         }
 
         Self { squares }

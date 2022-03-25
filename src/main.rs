@@ -9,11 +9,13 @@ use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
+use sdl2::rect::Rect;
 use sdl2::render::{Texture, WindowCanvas};
+
 pub type Error = Box<dyn ::std::error::Error>;
 
 enum State {
-    Quitting,
+    Quit,
     Focus {
         column: usize,
         row: usize,
@@ -25,7 +27,53 @@ enum State {
         column: usize,
         row: usize,
     },
+    SelectTeam(PieceColor),
     Unknown,
+}
+
+fn handle_mouse_keypress_on_ongoing_game(
+    x: u32,
+    y: u32,
+    cached: &cache::Cache,
+    chessboard: &board::Board,
+) -> State {
+    let (column, row) = board::into_relative_position(x, y);
+    let (column, row) = (column as usize, row as usize);
+
+    let square = chessboard.get_square(column, row).unwrap();
+    let is_focused = cached.focused_square.is_some();
+
+    match square.piece {
+        Some(piece) if piece.color != cached.current_turn && is_focused => {
+            let prev_move = cached.focused_square.unwrap();
+            State::Move {
+                prev_column: prev_move.0,
+                prev_row: prev_move.1,
+                column,
+                row,
+            }
+        }
+        Some(piece) if piece.color != cached.current_turn && !is_focused => State::Unfocus,
+        Some(piece) if piece.color == cached.current_turn => State::Focus { column, row },
+        None if is_focused => {
+            let prev_move = cached.focused_square.unwrap();
+            State::Move {
+                prev_column: prev_move.0,
+                prev_row: prev_move.1,
+                column,
+                row,
+            }
+        }
+        _ => State::Unknown,
+    }
+}
+
+fn handle_mouse_keypress_on_selecting_team(x: u32) -> State {
+    if x < constants::WINDOW_SIZE / 2 {
+        State::SelectTeam(PieceColor::White)
+    } else {
+        State::SelectTeam(PieceColor::Black)
+    }
 }
 
 fn handle_mouse_keypress(
@@ -38,32 +86,10 @@ fn handle_mouse_keypress(
     let (x, y) = (x as u32, y as u32);
     match mouse_btn {
         MouseButton::Left if board::is_cursor_inside_board(x, y) => {
-            let (column, row) = board::into_relative_position(x, y);
-            let (column, row) = (column as usize, row as usize);
-
-            let square = chessboard.get_square(column, row).unwrap();
-            let is_focused = cached.focused_square.is_some();
-            match square.piece {
-                Some(piece) if piece.color != cached.current_turn && is_focused => {
-                    let prev_move = cached.focused_square.unwrap();
-                    State::Move {
-                        prev_column: prev_move.0,
-                        prev_row: prev_move.1,
-                        column,
-                        row,
-                    }
-                }
-                Some(piece) if piece.color != cached.current_turn && !is_focused => State::Unfocus,
-                Some(piece) if piece.color == cached.current_turn => State::Focus { column, row },
-                None if is_focused => {
-                    let prev_move = cached.focused_square.unwrap();
-                    State::Move {
-                        prev_column: prev_move.0,
-                        prev_row: prev_move.1,
-                        column,
-                        row,
-                    }
-                }
+            use cache::GameState as GS;
+            match cached.current_game_state {
+                GS::SelectingTeam => handle_mouse_keypress_on_selecting_team(x),
+                GS::OngoingGame => handle_mouse_keypress_on_ongoing_game(x, y, cached, chessboard),
                 _ => State::Unknown,
             }
         }
@@ -73,7 +99,7 @@ fn handle_mouse_keypress(
 
 fn handle_keyboard_keypress(keycode: Option<Keycode>) -> State {
     match keycode {
-        Some(Keycode::Escape) => State::Quitting,
+        Some(Keycode::Escape) => State::Quit,
         _ => State::Unknown,
     }
 }
@@ -84,7 +110,7 @@ fn handle_event(
     chessboard: &board::Board,
 ) -> State {
     match event {
-        Event::Quit { .. } => State::Quitting,
+        Event::Quit { .. } => State::Quit,
         Event::KeyDown { keycode, .. } => handle_keyboard_keypress(keycode),
         Event::MouseButtonDown {
             mouse_btn, x, y, ..
@@ -130,6 +156,12 @@ fn handle_state(
 
             render(canvas, chessboard, pieces_texture, cached)?;
         }
+        State::SelectTeam(color) => {
+            *chessboard = board::Board::color(color);
+            cached.current_game_state = cache::GameState::OngoingGame;
+
+            render(canvas, chessboard, pieces_texture, cached)?;
+        }
         State::Unknown => (),
         _ => unreachable!(),
     }
@@ -142,13 +174,48 @@ fn render(
     pieces_texture: &Texture,
     cached: &crate::cache::Cache,
 ) -> Result<(), Error> {
-    // fill background
-    canvas.set_draw_color(Color::RGB(250, 229, 210));
-    canvas.clear();
+    use cache::GameState as GS;
+    match cached.current_game_state {
+        GS::SelectingTeam => {
+            canvas.set_draw_color(Color::RGB(250, 229, 210));
+            canvas.clear();
 
-    board::render_graphical_board(canvas, board, pieces_texture, cached)?;
+            render_graphical_selection(canvas)?;
+            canvas.present();
+        }
+        GS::OngoingGame => {
+            // fill background
+            canvas.set_draw_color(Color::RGB(250, 229, 210));
+            canvas.clear();
 
-    canvas.present();
+            board::render_graphical_board(canvas, board, pieces_texture, cached)?;
+
+            canvas.present();
+        }
+        GS::_YouWin => {}
+        GS::_YouLose => {}
+    }
+    Ok(())
+}
+
+fn render_graphical_selection(canvas: &mut WindowCanvas) -> Result<(), Error> {
+    canvas.set_draw_color(Color::RGB(255, 255, 255));
+    let rect = Rect::new(
+        constants::BOARD_X_OFFSET as i32,
+        constants::BOARD_Y_OFFSET as i32,
+        constants::BOARD_IN_WINDOW_SIZE / 2,
+        constants::BOARD_IN_WINDOW_SIZE,
+    );
+    canvas.fill_rect(rect)?;
+
+    canvas.set_draw_color(Color::RGB(0, 0, 0));
+    let rect = Rect::new(
+        constants::BOARD_X_OFFSET as i32 + (constants::BOARD_IN_WINDOW_SIZE / 2) as i32,
+        constants::BOARD_Y_OFFSET as i32,
+        constants::BOARD_IN_WINDOW_SIZE / 2,
+        constants::BOARD_IN_WINDOW_SIZE,
+    );
+    canvas.fill_rect(rect)?;
     Ok(())
 }
 
@@ -173,7 +240,7 @@ fn main() -> Result<(), Error> {
     'keep_alive: loop {
         for event in events.poll_iter() {
             match handle_event(event, &cached, &chessboard) {
-                State::Quitting => break 'keep_alive,
+                State::Quit => break 'keep_alive,
                 other_state => handle_state(
                     other_state,
                     &mut canvas,
