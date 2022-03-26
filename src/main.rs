@@ -16,17 +16,9 @@ pub type Error = Box<dyn ::std::error::Error>;
 
 enum State {
     Quit,
-    Focus {
-        column: usize,
-        row: usize,
-    },
+    Focus { column: usize, row: usize },
     Unfocus,
-    Move {
-        prev_column: usize,
-        prev_row: usize,
-        column: usize,
-        row: usize,
-    },
+    Move(board::Move),
     SelectTeam(PieceColor),
     Unknown,
 }
@@ -46,23 +38,19 @@ fn handle_mouse_keypress_on_ongoing_game(
     match square.piece {
         Some(piece) if piece.color != cached.current_turn && is_focused => {
             let prev_move = cached.focused_square.unwrap();
-            State::Move {
-                prev_column: prev_move.0,
-                prev_row: prev_move.1,
-                column,
-                row,
-            }
+            State::Move(board::Move {
+                start: prev_move,
+                target: (column, row),
+            })
         }
         Some(piece) if piece.color != cached.current_turn && !is_focused => State::Unfocus,
         Some(piece) if piece.color == cached.current_turn => State::Focus { column, row },
         None if is_focused => {
             let prev_move = cached.focused_square.unwrap();
-            State::Move {
-                prev_column: prev_move.0,
-                prev_row: prev_move.1,
-                column,
-                row,
-            }
+            State::Move(board::Move {
+                start: prev_move,
+                target: (column, row),
+            })
         }
         _ => State::Unknown,
     }
@@ -135,14 +123,9 @@ fn handle_state(
         State::Unfocus => {
             cached.focused_square = None;
         }
-        State::Move {
-            prev_column,
-            prev_row,
-            column,
-            row,
-        } => {
+        State::Move(move_data) => {
             // move the piece
-            board::move_board_piece(chessboard, prev_column, prev_row, column, row);
+            board::move_board_piece(chessboard, &move_data);
 
             // change the turn
             cached.current_turn = if cached.current_turn == PieceColor::White {

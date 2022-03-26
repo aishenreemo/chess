@@ -29,15 +29,12 @@ pub fn into_relative_position(x: u32, y: u32) -> (u32, u32) {
     )
 }
 
-pub fn move_board_piece(
-    chessboard: &mut Board,
-    prev_column: usize,
-    prev_row: usize,
-    column: usize,
-    row: usize,
-) {
-    chessboard.get_square_mut(column, row).unwrap().piece = chessboard
-        .get_square_mut(prev_column, prev_row)
+pub fn move_board_piece(chessboard: &mut Board, move_data: &Move) {
+    chessboard
+        .get_square_mut(move_data.target.0, move_data.target.1)
+        .unwrap()
+        .piece = chessboard
+        .get_square_mut(move_data.start.0, move_data.start.1)
         .unwrap()
         .piece
         .take();
@@ -176,4 +173,9 @@ impl Board {
 pub struct Square {
     pub piece: Option<Piece>,
     pub is_focused: bool,
+}
+
+pub struct Move {
+    pub start: (usize, usize),
+    pub target: (usize, usize),
 }
