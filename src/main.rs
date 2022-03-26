@@ -1,4 +1,4 @@
-mod board;
+pub mod board;
 mod cache;
 mod constants;
 pub mod piece;
@@ -116,12 +116,17 @@ fn handle_state(
 ) -> Result<(), Error> {
     match state {
         State::Focus { column, row } => {
+            let square_index = row * 8 + column;
             // focus the square
             cached.focused_square = Some((column, row));
+            cached.target_squares = board::get_target_squares(
+                cached.available_moves.get(&square_index).unwrap_or(&vec![]),
+            );
             render(canvas, chessboard, pieces_texture, cached)?;
         }
         State::Unfocus => {
             cached.focused_square = None;
+            cached.target_squares = vec![];
         }
         State::Move(move_data) => {
             // move the piece
@@ -136,6 +141,8 @@ fn handle_state(
 
             // unfocus the focused square
             cached.focused_square = None;
+            cached.target_squares = vec![];
+            cached.available_moves = board::generate_moves(chessboard, cached);
 
             render(canvas, chessboard, pieces_texture, cached)?;
         }

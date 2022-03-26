@@ -23,8 +23,8 @@ pub fn render_graphical_piece(
 fn get_piece_rect(piece: &Piece) -> Rect {
     let texture_width: u32 = 45;
     let x: u32 = match piece.variant {
-        PieceVariant::Queen => 0,
-        PieceVariant::King => texture_width,
+        PieceVariant::King => 0,
+        PieceVariant::Queen => texture_width,
         PieceVariant::Bishop => texture_width * 2,
         PieceVariant::Knight => texture_width * 3,
         PieceVariant::Castle => texture_width * 4,
@@ -38,19 +38,19 @@ fn get_piece_rect(piece: &Piece) -> Rect {
     Rect::new(x as i32, y as i32, texture_width, texture_width)
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Piece {
     pub color: PieceColor,
     pub variant: PieceVariant,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum PieceColor {
     Black,
     White,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum PieceVariant {
     Pawn,
     Bishop,
