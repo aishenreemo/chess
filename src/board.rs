@@ -38,6 +38,66 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
                     square_index,
                     generate_sliding_moves(chessboard, cached, column, row, 2),
                 ),
+                Some(piece) if piece.variant == PieceVariant::Pawn => {
+                    let mut pawn_legal_moves = vec![];
+                    let ally_color = &square.piece.unwrap().color;
+                    let is_direction_forward = cached.current_turn == cached.player_color;
+                    let start_row = if is_direction_forward { 6 } else { 1 };
+                    let start_square_index = row * 8 + column;
+                    let num_directions = if start_row == row { 2 } else { 1 };
+
+                    let mut i = 0;
+                    while i < num_directions {
+                        let offset = (i as i32 + 1) * if is_direction_forward { -8 } else { 8 };
+                        let target_square_index = (start_square_index as i32 + offset) as usize;
+                        let target_column = target_square_index % 8;
+                        let target_row = target_square_index / 8;
+
+                        let target_square =
+                            chessboard.get_square(target_column, target_row).unwrap();
+                        match target_square.piece {
+                            // if it found a piece
+                            Some(_) => break,
+                            // if it's an empty square
+                            None => pawn_legal_moves.push(Move {
+                                start: (column, row),
+                                target: (target_column, target_row),
+                            }),
+                        }
+
+                        i += 1;
+                    }
+
+                    let pawn_eating_directions = if is_direction_forward {
+                        [-9, -7]
+                    } else {
+                        [7, 9]
+                    };
+                    for (index, offset) in pawn_eating_directions.iter().enumerate() {
+                        // the pawn is at left/right edge, therefore the left/right square doesnt exist
+                        if column == 0 && index == 0 || column == 7 && index == 1 {
+                            continue;
+                        }
+
+                        let target_square_index = (start_square_index as i32 + offset) as usize;
+                        let target_column = target_square_index % 8;
+                        let target_row = target_square_index / 8;
+
+                        let target_square =
+                            chessboard.get_square(target_column, target_row).unwrap();
+                        match target_square.piece {
+                            // if it found an enemy piece
+                            Some(piece) if &piece.color != ally_color => {
+                                pawn_legal_moves.push(Move {
+                                    start: (column, row),
+                                    target: (target_column, target_row),
+                                })
+                            }
+                            _ => continue,
+                        }
+                    }
+                    output.insert(start_square_index, pawn_legal_moves)
+                }
                 _ => continue,
             };
         }
@@ -59,6 +119,7 @@ pub fn generate_sliding_moves(
         .piece
         .unwrap()
         .color;
+    let direction_offsets = [-8, 8, -1, 1, -9, -7, 7, 9];
     let start_index = if sliding_piece_type == 2 { 4 } else { 0 };
     let end_index = if sliding_piece_type == 1 { 4 } else { 8 };
 
@@ -66,11 +127,11 @@ pub fn generate_sliding_moves(
 
     let mut i = start_index;
     while i < end_index {
-        let offset = cached.direction_offsets[i];
+        let offset = direction_offsets[i];
         let mut j = 0;
         while j < cached.num_squares_to_edge[start_square_index][i] {
             let target_square_index =
-                (start_square_index as i32 + offset * (j as i32 + 1i32)) as usize;
+                (start_square_index as i32 + offset * (j as i32 + 1)) as usize;
             let target_column = target_square_index % 8;
             let target_row = target_square_index / 8;
 
@@ -214,13 +275,13 @@ impl Board {
         Self { squares }
     }
 
-    pub fn color(teamcolor: PieceColor) -> Self {
+    pub fn color(teamcolor: &PieceColor) -> Self {
         let mut squares = [[Square {
             piece: None,
             is_focused: false,
         }; 8]; 8];
 
-        let piece_exception_variant = match teamcolor {
+        let piece_exception_variant = match *teamcolor {
             PieceColor::Black => (PieceVariant::King, PieceVariant::Queen),
             PieceColor::White => (PieceVariant::Queen, PieceVariant::King),
         };
@@ -248,7 +309,7 @@ impl Board {
             _ => unreachable!(),
         };
 
-        let rows = match teamcolor {
+        let rows = match *teamcolor {
             PieceColor::White => (1, 6, 0, 7),
             PieceColor::Black => (6, 1, 7, 0),
         };

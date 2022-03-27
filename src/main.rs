@@ -147,8 +147,10 @@ fn handle_state(
             render(canvas, chessboard, pieces_texture, cached)?;
         }
         State::SelectTeam(color) => {
-            *chessboard = board::Board::color(color);
+            *chessboard = board::Board::color(&color);
             cached.current_game_state = cache::GameState::OngoingGame;
+            cached.player_color = color;
+            cached.available_moves = board::generate_moves(chessboard, cached);
 
             render(canvas, chessboard, pieces_texture, cached)?;
         }

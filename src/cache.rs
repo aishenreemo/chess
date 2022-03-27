@@ -4,10 +4,10 @@ pub struct Cache {
     pub focused_square: Option<(usize, usize)>,
     pub target_squares: Vec<(usize, usize)>,
     pub current_turn: crate::piece::PieceColor,
+    pub player_color: crate::piece::PieceColor,
     pub current_game_state: GameState,
     pub available_moves: std::collections::HashMap<usize, Vec<crate::board::Move>>,
     pub num_squares_to_edge: [[usize; 8]; 64],
-    pub direction_offsets: [i32; 8],
 }
 
 impl Cache {
@@ -16,10 +16,10 @@ impl Cache {
             focused_square: None,
             target_squares: vec![],
             current_turn: PieceColor::White,
+            player_color: PieceColor::White,
             current_game_state: GameState::SelectingTeam,
             available_moves: std::collections::HashMap::new(),
             num_squares_to_edge: precompute_move_data(),
-            direction_offsets: [-8, 8, -1, 1, -9, -7, 7, 9],
         }
     }
 }
