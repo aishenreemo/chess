@@ -98,6 +98,83 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
                     }
                     output.insert(start_square_index, pawn_legal_moves)
                 }
+                Some(piece) if piece.variant == PieceVariant::Knight => {
+                    let mut knight_legal_moves: Vec<Move> = vec![];
+                    let ally_color = &square.piece.unwrap().color;
+
+                    let knight_directions = [
+                        (-2, -1),
+                        (-2, 1),
+                        (-1, -2),
+                        (-1, 2),
+                        (1, -2),
+                        (1, 2),
+                        (2, -1),
+                        (2, 1),
+                    ];
+                    for offset in knight_directions.iter() {
+                        let target_row = row as i32 + offset.0;
+                        let target_column = column as i32 + offset.1;
+
+                        if target_row < 0 || target_column < 0 {
+                            continue;
+                        }
+
+                        let target_square =
+                            chessboard.get_square(target_column as usize, target_row as usize);
+                        // if it's a non existing square in the board
+                        if target_square.is_none() {
+                            continue;
+                        }
+                        match target_square.unwrap().piece {
+                            Some(piece) if ally_color == &piece.color => continue,
+                            _ => knight_legal_moves.push(Move {
+                                start: (column, row),
+                                target: (target_column as usize, target_row as usize),
+                            }),
+                        }
+                    }
+                    output.insert(row * 8 + column, knight_legal_moves)
+                }
+                Some(piece) if piece.variant == PieceVariant::King => {
+                    let mut king_legal_moves: Vec<Move> = vec![];
+                    let ally_color = &square.piece.unwrap().color;
+
+                    let king_directions = [
+                        (-1, -1),
+                        (-1, 0),
+                        (-1, 1),
+                        (0, -1),
+                        (0, 0),
+                        (0, 1),
+                        (1, -1),
+                        (1, 0),
+                        (1, 1),
+                    ];
+                    for offset in king_directions.iter() {
+                        let target_row = row as i32 + offset.0;
+                        let target_column = column as i32 + offset.1;
+
+                        if target_row < 0 || target_column < 0 {
+                            continue;
+                        }
+
+                        let target_square =
+                            chessboard.get_square(target_column as usize, target_row as usize);
+                        // if it's a non existing square in the board
+                        if target_square.is_none() {
+                            continue;
+                        }
+                        match target_square.unwrap().piece {
+                            Some(piece) if ally_color == &piece.color => continue,
+                            _ => king_legal_moves.push(Move {
+                                start: (column, row),
+                                target: (target_column as usize, target_row as usize),
+                            }),
+                        }
+                    }
+                    output.insert(row * 8 + column, king_legal_moves)
+                }
                 _ => continue,
             };
         }
