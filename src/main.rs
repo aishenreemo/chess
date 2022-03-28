@@ -129,6 +129,15 @@ fn handle_state(
             cached.target_squares = vec![];
         }
         State::Move(move_data) => {
+            // unfocus if its not a valid move
+            if !cached.target_squares.contains(&move_data.target) {
+                cached.focused_square = None;
+                cached.target_squares = vec![];
+
+                render(canvas, chessboard, pieces_texture, cached)?;
+                return Ok(());
+            }
+
             // move the piece
             board::move_board_piece(chessboard, &move_data);
 
