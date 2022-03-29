@@ -40,7 +40,6 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
                 ),
                 Some(piece) if piece.variant == PieceVariant::Pawn => {
                     let mut pawn_legal_moves = vec![];
-                    let ally_color = &square.piece.unwrap().color;
                     let is_direction_forward = cached.current_turn == cached.player_color;
                     let start_row = if is_direction_forward { 6 } else { 1 };
                     let start_square_index = row * 8 + column;
@@ -87,12 +86,11 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
                             chessboard.get_square(target_column, target_row).unwrap();
                         match target_square.piece {
                             // if it found an enemy piece
-                            Some(piece) if &piece.color != ally_color => {
-                                pawn_legal_moves.push(Move {
+                            Some(piece) if piece.color != cached.current_turn => pawn_legal_moves
+                                .push(Move {
                                     start: (column, row),
                                     target: (target_column, target_row),
-                                })
-                            }
+                                }),
                             _ => continue,
                         }
                     }
@@ -100,7 +98,6 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
                 }
                 Some(piece) if piece.variant == PieceVariant::Knight => {
                     let mut knight_legal_moves: Vec<Move> = vec![];
-                    let ally_color = &square.piece.unwrap().color;
 
                     let knight_directions = [
                         (-2, -1),
@@ -127,7 +124,7 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
                             continue;
                         }
                         match target_square.unwrap().piece {
-                            Some(piece) if ally_color == &piece.color => continue,
+                            Some(piece) if cached.current_turn == piece.color => continue,
                             _ => knight_legal_moves.push(Move {
                                 start: (column, row),
                                 target: (target_column as usize, target_row as usize),
@@ -138,7 +135,6 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
                 }
                 Some(piece) if piece.variant == PieceVariant::King => {
                     let mut king_legal_moves: Vec<Move> = vec![];
-                    let ally_color = &square.piece.unwrap().color;
 
                     let king_directions = [
                         (-1, -1),
@@ -166,7 +162,7 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
                             continue;
                         }
                         match target_square.unwrap().piece {
-                            Some(piece) if ally_color == &piece.color => continue,
+                            Some(piece) if cached.current_turn == piece.color => continue,
                             _ => king_legal_moves.push(Move {
                                 start: (column, row),
                                 target: (target_column as usize, target_row as usize),
@@ -190,12 +186,6 @@ pub fn generate_sliding_moves(
     sliding_piece_type: usize,
 ) -> Vec<Move> {
     let mut output = vec![];
-    let ally_color = &chessboard
-        .get_square(column, row)
-        .unwrap()
-        .piece
-        .unwrap()
-        .color;
     let direction_offsets = [-8, 8, -1, 1, -9, -7, 7, 9];
     let start_index = if sliding_piece_type == 2 { 4 } else { 0 };
     let end_index = if sliding_piece_type == 1 { 4 } else { 8 };
@@ -215,7 +205,7 @@ pub fn generate_sliding_moves(
             let target_square = chessboard.get_square(target_column, target_row).unwrap();
             match target_square.piece {
                 // if it's an ally square
-                Some(piece) if ally_color == &piece.color => break,
+                Some(piece) if cached.current_turn == piece.color => break,
                 // if it's non-ally square
                 Some(_) => {
                     output.push(Move {
