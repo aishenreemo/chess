@@ -287,7 +287,7 @@ pub fn get_castling_move_data(move_data_target: (usize, usize)) -> Move {
     match move_data_target {
         (1, i) => Move {
             start: (0, i),
-            target: (2, 1),
+            target: (2, i),
         },
         (2, i) => Move {
             start: (0, i),
