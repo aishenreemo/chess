@@ -138,8 +138,32 @@ fn handle_state(
                 return Ok(());
             }
 
-            // move the piece
-            board::move_board_piece(chessboard, &move_data);
+            if board::is_move_castling(&move_data, cached) {
+                board::move_board_piece(chessboard, &move_data);
+                board::move_board_piece(
+                    chessboard,
+                    &board::get_castling_move_data(move_data.target),
+                );
+            } else {
+                // move the piece
+                board::move_board_piece(chessboard, &move_data);
+            }
+
+            // check if the pieces used for castling is moved
+            for (index, pos_data) in cached.castling_pieces_initial_position.iter().enumerate() {
+                if !cached.is_castling_pieces_unmoved[index] {
+                    continue;
+                }
+
+                let square = chessboard.get_square(pos_data.0[0], pos_data.0[1]).unwrap();
+                if square.piece.is_none() {
+                    cached.is_castling_pieces_unmoved[index] = false;
+                    continue;
+                }
+                if square.piece.unwrap().variant != pos_data.1 {
+                    cached.is_castling_pieces_unmoved[index] = false;
+                }
+            }
 
             // change the turn
             cached.current_turn = if cached.current_turn == PieceColor::White {
@@ -160,6 +184,13 @@ fn handle_state(
             cached.current_game_state = cache::GameState::OngoingGame;
             cached.player_color = color;
             cached.available_moves = board::generate_moves(chessboard, cached);
+            cached.castling_pieces_initial_position =
+                cache::precompute_castling_pieces_init_pos(cached);
+            cached.king_initial_column = if cached.player_color == PieceColor::White {
+                4
+            } else {
+                3
+            };
 
             render(canvas, chessboard, pieces_texture, cached)?;
         }

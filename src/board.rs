@@ -135,6 +135,13 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
                 }
                 Some(piece) if piece.variant == PieceVariant::King => {
                     let mut king_legal_moves: Vec<Move> = vec![];
+                    let is_king_ally_to_player = cached.player_color == cached.current_turn;
+                    let king_initial_row = if is_king_ally_to_player { 7 } else { 0 };
+                    let is_valid_to_castling = if is_king_ally_to_player {
+                        cached.is_castling_pieces_unmoved[3..].iter().all(|&x| x)
+                    } else {
+                        cached.is_castling_pieces_unmoved[..3].iter().all(|&x| x)
+                    };
 
                     let king_directions = [
                         (-1, -1),
@@ -169,6 +176,46 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
                             }),
                         }
                     }
+
+                    if (cached.king_initial_column, king_initial_row) == (column, row)
+                        && is_valid_to_castling
+                    {
+                        let mut castling_side = [false, false];
+                        let offsets = [-1, 1];
+                        for (index, offset) in offsets.iter().enumerate() {
+                            let mut i: i32 = 0;
+                            loop {
+                                i += 1;
+                                let target_column = (column as i32 + offset * i) as usize;
+                                let target_square = chessboard.get_square(target_column, row);
+
+                                if target_square.is_none() {
+                                    break;
+                                }
+                                match target_square.unwrap().piece {
+                                    Some(piece) if piece.variant == PieceVariant::Castle => {
+                                        castling_side[index] = true;
+                                        break;
+                                    }
+                                    Some(_) => break,
+                                    None => continue,
+                                }
+                            }
+                        }
+                        if castling_side[0] {
+                            king_legal_moves.push(Move {
+                                start: (column, row),
+                                target: (column - 2, row),
+                            });
+                        }
+                        if castling_side[1] {
+                            king_legal_moves.push(Move {
+                                start: (column, row),
+                                target: (column + 2, row),
+                            })
+                        }
+                    }
+
                     output.insert(row * 8 + column, king_legal_moves)
                 }
                 _ => continue,
@@ -234,6 +281,38 @@ pub fn get_target_squares(moves: &[Move]) -> Vec<(usize, usize)> {
         output.push(move_data.target);
     }
     output
+}
+
+pub fn get_castling_move_data(move_data_target: (usize, usize)) -> Move {
+    match move_data_target {
+        (1, i) => Move {
+            start: (0, i),
+            target: (2, 1),
+        },
+        (2, i) => Move {
+            start: (0, i),
+            target: (3, i),
+        },
+        (5, i) => Move {
+            start: (7, i),
+            target: (4, i),
+        },
+        (6, i) => Move {
+            start: (7, i),
+            target: (5, i),
+        },
+        (_, _) => unreachable!(),
+    }
+}
+
+pub fn is_move_castling(move_data: &Move, cached: &Cache) -> bool {
+    let enemy_king = (cached.king_initial_column, 0);
+    let ally_king = (cached.king_initial_column, 7);
+    let is_target = |target: &(usize, usize)| {
+        move_data.target == (target.0 + 2, target.1) || move_data.target == (target.0 - 2, target.1)
+    };
+    (move_data.start == enemy_king && is_target(&enemy_king))
+        || (move_data.start == ally_king && is_target(&ally_king))
 }
 
 pub fn is_cursor_inside_board(x: u32, y: u32) -> bool {

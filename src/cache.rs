@@ -1,4 +1,4 @@
-use crate::piece::PieceColor;
+use crate::piece::{PieceColor, PieceVariant};
 
 pub struct Cache {
     pub focused_square: Option<(usize, usize)>,
@@ -8,6 +8,9 @@ pub struct Cache {
     pub current_game_state: GameState,
     pub available_moves: std::collections::HashMap<usize, Vec<crate::board::Move>>,
     pub num_squares_to_edge: [[usize; 8]; 64],
+    pub king_initial_column: usize,
+    pub is_castling_pieces_unmoved: [bool; 6],
+    pub castling_pieces_initial_position: [([usize; 2], PieceVariant); 6],
 }
 
 impl Cache {
@@ -20,6 +23,9 @@ impl Cache {
             current_game_state: GameState::SelectingTeam,
             available_moves: std::collections::HashMap::new(),
             num_squares_to_edge: precompute_move_data(),
+            king_initial_column: 4,
+            is_castling_pieces_unmoved: [true, true, true, true, true, true],
+            castling_pieces_initial_position: [([2; 2], PieceVariant::King); 6],
         }
     }
 }
@@ -29,6 +35,25 @@ pub enum GameState {
     OngoingGame,
     _YouWin,
     _YouLose,
+}
+
+pub fn precompute_castling_pieces_init_pos(cached: &Cache) -> [([usize; 2], PieceVariant); 6] {
+    [
+        ([0, 0], PieceVariant::Castle),
+        if cached.player_color == PieceColor::White {
+            ([4, 0], PieceVariant::King)
+        } else {
+            ([3, 0], PieceVariant::King)
+        },
+        ([7, 0], PieceVariant::Castle),
+        ([0, 7], PieceVariant::Castle),
+        if cached.player_color == PieceColor::White {
+            ([4, 7], PieceVariant::King)
+        } else {
+            ([3, 7], PieceVariant::King)
+        },
+        ([7, 7], PieceVariant::Castle),
+    ]
 }
 
 fn precompute_move_data() -> [[usize; 8]; 64] {
