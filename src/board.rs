@@ -12,20 +12,20 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
     let mut output = HashMap::new();
     for column in 0..8 {
         for row in 0..8 {
-            let square = chessboard.get_square(column, row).unwrap();
+            let piece = chessboard.get_square(column, row);
 
             // ignore empty squares
-            if square.piece.is_none() {
+            if piece.is_none() {
                 continue;
             }
 
             // ignore non-ally pieces
-            if square.piece.unwrap().color != cached.current_turn {
+            if piece.unwrap().color != cached.current_turn {
                 continue;
             }
 
             let square_index = row * 8 + column;
-            match square.piece {
+            match piece {
                 Some(piece) if piece.variant == PieceVariant::Queen => output.insert(
                     square_index,
                     generate_sliding_moves(chessboard, cached, column, row, 0),
@@ -38,186 +38,18 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
                     square_index,
                     generate_sliding_moves(chessboard, cached, column, row, 2),
                 ),
-                Some(piece) if piece.variant == PieceVariant::Pawn => {
-                    let mut pawn_legal_moves = vec![];
-                    let is_direction_forward = cached.current_turn == cached.player_color;
-                    let start_row = if is_direction_forward { 6 } else { 1 };
-                    let start_square_index = row * 8 + column;
-                    let num_directions = if start_row == row { 2 } else { 1 };
-
-                    let mut i = 0;
-                    while i < num_directions {
-                        let offset = (i as i32 + 1) * if is_direction_forward { -8 } else { 8 };
-                        let target_square_index = (start_square_index as i32 + offset) as usize;
-                        let target_column = target_square_index % 8;
-                        let target_row = target_square_index / 8;
-
-                        let target_square =
-                            chessboard.get_square(target_column, target_row).unwrap();
-                        match target_square.piece {
-                            // if it found a piece
-                            Some(_) => break,
-                            // if it's an empty square
-                            None => pawn_legal_moves.push(Move {
-                                start: (column, row),
-                                target: (target_column, target_row),
-                            }),
-                        }
-
-                        i += 1;
-                    }
-
-                    let pawn_eating_directions = if is_direction_forward {
-                        [-9, -7]
-                    } else {
-                        [7, 9]
-                    };
-                    for (index, offset) in pawn_eating_directions.iter().enumerate() {
-                        // the pawn is at left/right edge, therefore the left/right square doesnt exist
-                        if column == 0 && index == 0 || column == 7 && index == 1 {
-                            continue;
-                        }
-
-                        let target_square_index = (start_square_index as i32 + offset) as usize;
-                        let target_column = target_square_index % 8;
-                        let target_row = target_square_index / 8;
-
-                        let target_square =
-                            chessboard.get_square(target_column, target_row).unwrap();
-                        match target_square.piece {
-                            // if it found an enemy piece
-                            Some(piece) if piece.color != cached.current_turn => pawn_legal_moves
-                                .push(Move {
-                                    start: (column, row),
-                                    target: (target_column, target_row),
-                                }),
-                            _ => continue,
-                        }
-                    }
-                    output.insert(start_square_index, pawn_legal_moves)
-                }
-                Some(piece) if piece.variant == PieceVariant::Knight => {
-                    let mut knight_legal_moves: Vec<Move> = vec![];
-
-                    let knight_directions = [
-                        (-2, -1),
-                        (-2, 1),
-                        (-1, -2),
-                        (-1, 2),
-                        (1, -2),
-                        (1, 2),
-                        (2, -1),
-                        (2, 1),
-                    ];
-                    for offset in knight_directions.iter() {
-                        let target_row = row as i32 + offset.0;
-                        let target_column = column as i32 + offset.1;
-
-                        if target_row < 0 || target_column < 0 {
-                            continue;
-                        }
-
-                        let target_square =
-                            chessboard.get_square(target_column as usize, target_row as usize);
-                        // if it's a non existing square in the board
-                        if target_square.is_none() {
-                            continue;
-                        }
-                        match target_square.unwrap().piece {
-                            Some(piece) if cached.current_turn == piece.color => continue,
-                            _ => knight_legal_moves.push(Move {
-                                start: (column, row),
-                                target: (target_column as usize, target_row as usize),
-                            }),
-                        }
-                    }
-                    output.insert(row * 8 + column, knight_legal_moves)
-                }
-                Some(piece) if piece.variant == PieceVariant::King => {
-                    let mut king_legal_moves: Vec<Move> = vec![];
-                    let is_king_ally_to_player = cached.player_color == cached.current_turn;
-                    let king_initial_row = if is_king_ally_to_player { 7 } else { 0 };
-                    let is_valid_to_castling = if is_king_ally_to_player {
-                        cached.is_castling_pieces_unmoved[3..].iter().all(|&x| x)
-                    } else {
-                        cached.is_castling_pieces_unmoved[..3].iter().all(|&x| x)
-                    };
-
-                    let king_directions = [
-                        (-1, -1),
-                        (-1, 0),
-                        (-1, 1),
-                        (0, -1),
-                        (0, 0),
-                        (0, 1),
-                        (1, -1),
-                        (1, 0),
-                        (1, 1),
-                    ];
-                    for offset in king_directions.iter() {
-                        let target_row = row as i32 + offset.0;
-                        let target_column = column as i32 + offset.1;
-
-                        if target_row < 0 || target_column < 0 {
-                            continue;
-                        }
-
-                        let target_square =
-                            chessboard.get_square(target_column as usize, target_row as usize);
-                        // if it's a non existing square in the board
-                        if target_square.is_none() {
-                            continue;
-                        }
-                        match target_square.unwrap().piece {
-                            Some(piece) if cached.current_turn == piece.color => continue,
-                            _ => king_legal_moves.push(Move {
-                                start: (column, row),
-                                target: (target_column as usize, target_row as usize),
-                            }),
-                        }
-                    }
-
-                    if (cached.king_initial_column, king_initial_row) == (column, row)
-                        && is_valid_to_castling
-                    {
-                        let mut castling_side = [false, false];
-                        let offsets = [-1, 1];
-                        for (index, offset) in offsets.iter().enumerate() {
-                            let mut i: i32 = 0;
-                            loop {
-                                i += 1;
-                                let target_column = (column as i32 + offset * i) as usize;
-                                let target_square = chessboard.get_square(target_column, row);
-
-                                if target_square.is_none() {
-                                    break;
-                                }
-                                match target_square.unwrap().piece {
-                                    Some(piece) if piece.variant == PieceVariant::Castle => {
-                                        castling_side[index] = true;
-                                        break;
-                                    }
-                                    Some(_) => break,
-                                    None => continue,
-                                }
-                            }
-                        }
-                        if castling_side[0] {
-                            king_legal_moves.push(Move {
-                                start: (column, row),
-                                target: (column - 2, row),
-                            });
-                        }
-                        if castling_side[1] {
-                            king_legal_moves.push(Move {
-                                start: (column, row),
-                                target: (column + 2, row),
-                            })
-                        }
-                    }
-
-                    output.insert(row * 8 + column, king_legal_moves)
-                }
+                Some(piece) if piece.variant == PieceVariant::Pawn => output.insert(
+                    square_index,
+                    generate_pawn_moves(chessboard, cached, column, row),
+                ),
+                Some(piece) if piece.variant == PieceVariant::Knight => output.insert(
+                    square_index,
+                    generate_knight_moves(chessboard, cached, column, row),
+                ),
+                Some(piece) if piece.variant == PieceVariant::King => output.insert(
+                    square_index,
+                    generate_king_moves(chessboard, cached, column, row),
+                ),
                 _ => continue,
             };
         }
@@ -225,7 +57,7 @@ pub fn generate_moves(chessboard: &Board, cached: &Cache) -> HashMap<usize, Vec<
     output
 }
 
-pub fn generate_sliding_moves(
+fn generate_sliding_moves(
     chessboard: &Board,
     cached: &Cache,
     column: usize,
@@ -233,35 +65,44 @@ pub fn generate_sliding_moves(
     sliding_piece_type: usize,
 ) -> Vec<Move> {
     let mut output = vec![];
-    let direction_offsets = [-8, 8, -1, 1, -9, -7, 7, 9];
+    let direction_offsets = [
+        (0, -1),
+        (0, 1),
+        (-1, 0),
+        (1, 0),
+        (-1, -1),
+        (1, -1),
+        (-1, 1),
+        (1, 1),
+    ];
+
     let start_index = if sliding_piece_type == 2 { 4 } else { 0 };
     let end_index = if sliding_piece_type == 1 { 4 } else { 8 };
 
-    let start_square_index = row * 8 + column;
-
     let mut i = start_index;
     while i < end_index {
+        let mut j = 1i32;
         let offset = direction_offsets[i];
-        let mut j = 0;
-        while j < cached.num_squares_to_edge[start_square_index][i] {
-            let target_square_index =
-                (start_square_index as i32 + offset * (j as i32 + 1)) as usize;
-            let target_column = target_square_index % 8;
-            let target_row = target_square_index / 8;
+        loop {
+            let target_column = column as i32 + offset.0 * j;
+            let target_row = row as i32 + offset.1 * j;
 
-            let target_square = chessboard.get_square(target_column, target_row).unwrap();
-            match target_square.piece {
-                // if it's an ally square
+            if !(0..8).contains(&target_column) || !(0..8).contains(&target_row) {
+                break;
+            }
+
+            let (target_column, target_row) = (target_column as usize, target_row as usize);
+
+            let target_square = chessboard.get_square(target_column, target_row);
+            match target_square {
                 Some(piece) if cached.current_turn == piece.color => break,
-                // if it's non-ally square
-                Some(_) => {
+                Some(_piece) => {
                     output.push(Move {
                         start: (column, row),
                         target: (target_column, target_row),
                     });
                     break;
                 }
-                // if it's an empty square
                 None => output.push(Move {
                     start: (column, row),
                     target: (target_column, target_row),
@@ -271,8 +112,193 @@ pub fn generate_sliding_moves(
         }
         i += 1;
     }
-
     output
+}
+
+fn generate_pawn_moves(chessboard: &Board, cached: &Cache, column: usize, row: usize) -> Vec<Move> {
+    let mut pawn_legal_moves = vec![];
+    let is_direction_forward = cached.current_turn == cached.player_color;
+    let start_row = if is_direction_forward { 6 } else { 1 };
+    let start_square_index = row * 8 + column;
+    let num_directions = if start_row == row { 2 } else { 1 };
+
+    let mut i = 0;
+    while i < num_directions {
+        let offset = (i as i32 + 1) * if is_direction_forward { -8 } else { 8 };
+        let target_square_index = (start_square_index as i32 + offset) as usize;
+        let target_column = target_square_index % 8;
+        let target_row = target_square_index / 8;
+
+        let target_square = chessboard.get_square(target_column, target_row);
+        match target_square {
+            // if it found a piece
+            Some(_) => break,
+            // if it's an empty square
+            None => pawn_legal_moves.push(Move {
+                start: (column, row),
+                target: (target_column, target_row),
+            }),
+        }
+
+        i += 1;
+    }
+
+    let pawn_eating_directions = if is_direction_forward {
+        [-9, -7]
+    } else {
+        [7, 9]
+    };
+    for (index, offset) in pawn_eating_directions.iter().enumerate() {
+        // the pawn is at left/right edge, therefore the left/right square doesnt exist
+        if column == 0 && index == 0 || column == 7 && index == 1 {
+            continue;
+        }
+
+        let target_square_index = (start_square_index as i32 + offset) as usize;
+        let target_column = target_square_index % 8;
+        let target_row = target_square_index / 8;
+
+        let target_square = chessboard.get_square(target_column, target_row);
+        match target_square {
+            // if it found an enemy piece
+            Some(piece) if piece.color != cached.current_turn => pawn_legal_moves.push(Move {
+                start: (column, row),
+                target: (target_column, target_row),
+            }),
+            _ => continue,
+        }
+    }
+    pawn_legal_moves
+}
+
+fn generate_knight_moves(
+    chessboard: &Board,
+    cached: &Cache,
+    column: usize,
+    row: usize,
+) -> Vec<Move> {
+    let mut knight_legal_moves: Vec<Move> = vec![];
+
+    let knight_directions = [
+        (-2, -1),
+        (-2, 1),
+        (-1, -2),
+        (-1, 2),
+        (1, -2),
+        (1, 2),
+        (2, -1),
+        (2, 1),
+    ];
+
+    for offset in knight_directions.iter() {
+        let target_row = row as i32 + offset.0;
+        let target_column = column as i32 + offset.1;
+
+        if !(0..8).contains(&target_row) || !(0..8).contains(&target_column) {
+            continue;
+        }
+
+        let (target_column, target_row) = (target_column as usize, target_row as usize);
+        let target_square = chessboard.get_square(target_column, target_row);
+
+        match target_square {
+            Some(piece) if cached.current_turn == piece.color => continue,
+            _ => knight_legal_moves.push(Move {
+                start: (column, row),
+                target: (target_column, target_row),
+            }),
+        }
+    }
+    knight_legal_moves
+}
+
+fn generate_king_moves(chessboard: &Board, cached: &Cache, column: usize, row: usize) -> Vec<Move> {
+    let mut king_legal_moves: Vec<Move> = vec![];
+    let is_king_ally_to_player = cached.player_color == cached.current_turn;
+    let king_initial_row = if is_king_ally_to_player { 7 } else { 0 };
+    let is_valid_to_castling: bool = {
+        let slice: Vec<&bool> = cached.is_castling_pieces_unmoved
+            [if is_king_ally_to_player { 3..6 } else { 0..3 }]
+        .iter()
+        .collect();
+        (*slice[0] || *slice[2]) && *slice[1]
+    };
+
+    let king_directions = [
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+        (0, -1),
+        (0, 0),
+        (0, 1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+    ];
+
+    for offset in king_directions.iter() {
+        let target_row = row as i32 + offset.0;
+        let target_column = column as i32 + offset.1;
+
+        if !(0..8).contains(&target_row) || !(0..8).contains(&target_column) {
+            continue;
+        }
+
+        let (target_column, target_row) = (target_column as usize, target_row as usize);
+
+        let target_square = chessboard.get_square(target_column, target_row);
+
+        match target_square {
+            Some(piece) if cached.current_turn == piece.color => continue,
+            _ => king_legal_moves.push(Move {
+                start: (column, row),
+                target: (target_column, target_row),
+            }),
+        }
+    }
+
+    if (cached.king_initial_column, king_initial_row) == (column, row) && is_valid_to_castling {
+        let mut castling_side = [false, false];
+        let offsets = [-1, 1];
+        for (i, offset) in offsets.iter().enumerate() {
+            let mut j: i32 = 0;
+            loop {
+                j += 1;
+                let target_column = (column as i32 + offset * j) as usize;
+                if !(0..8).contains(&target_column) {
+                    break;
+                }
+
+                let target_square = chessboard.get_square(target_column, row);
+                match target_square {
+                    Some(piece)
+                        if piece.variant == PieceVariant::Castle
+                            && [0, 7].contains(&target_column) =>
+                    {
+                        castling_side[i] = true;
+                        break;
+                    }
+                    Some(_) => break,
+                    None => continue,
+                }
+            }
+        }
+
+        if castling_side[0] {
+            king_legal_moves.push(Move {
+                start: (column, row),
+                target: (column - 2, row),
+            });
+        }
+        if castling_side[1] {
+            king_legal_moves.push(Move {
+                start: (column, row),
+                target: (column + 2, row),
+            })
+        }
+    }
+
+    king_legal_moves
 }
 
 pub fn get_target_squares(moves: &[Move]) -> Vec<(usize, usize)> {
@@ -339,14 +365,8 @@ pub fn into_relative_position(x: u32, y: u32) -> (u32, u32) {
 }
 
 pub fn move_board_piece(chessboard: &mut Board, move_data: &Move) {
-    chessboard
-        .get_square_mut(move_data.target.0, move_data.target.1)
-        .unwrap()
-        .piece = chessboard
-        .get_square_mut(move_data.start.0, move_data.start.1)
-        .unwrap()
-        .piece
-        .take();
+    (*chessboard).pieces[move_data.target.1][move_data.target.0] =
+        chessboard.pieces[move_data.start.1][move_data.start.0].take();
 }
 
 pub fn render_graphical_board(
@@ -367,7 +387,7 @@ pub fn render_graphical_board(
 
     // render squares
     // for each row
-    for (row, squares) in board.squares.into_iter().enumerate() {
+    for (row, squares) in board.pieces.into_iter().enumerate() {
         // for each column
         for (column, square) in squares.into_iter().enumerate() {
             let (x, y) = into_absolute_position(column as u32, row as u32);
@@ -398,7 +418,7 @@ pub fn render_graphical_board(
                 canvas.fill_rect(cell_rect_focused)?;
             }
 
-            if let Some(ref p) = square.piece {
+            if let Some(ref p) = square {
                 piece::render_graphical_piece(canvas, pieces_texture, p, x, y)?
             }
         }
@@ -408,29 +428,30 @@ pub fn render_graphical_board(
 }
 
 pub struct Board {
-    pub squares: [[Square; 8]; 8],
+    pub pieces: [[Option<Piece>; 8]; 8],
 }
 
 impl Board {
     pub fn init() -> Self {
-        let squares = [[Square {
-            piece: None,
-            is_focused: false,
-        }; 8]; 8];
+        let pieces = [[None; 8]; 8];
 
-        Self { squares }
+        Self { pieces }
     }
 
     pub fn color(teamcolor: &PieceColor) -> Self {
-        let mut squares = [[Square {
-            piece: None,
-            is_focused: false,
-        }; 8]; 8];
+        let mut pieces = [[None; 8]; 8];
 
         let piece_exception_variant = match *teamcolor {
-            PieceColor::Black => (PieceVariant::King, PieceVariant::Queen),
-            PieceColor::White => (PieceVariant::Queen, PieceVariant::King),
+            PieceColor::Black => [PieceVariant::King, PieceVariant::Queen],
+            PieceColor::White => [PieceVariant::Queen, PieceVariant::King],
         };
+
+        // initial rows
+        let rows = match *teamcolor {
+            PieceColor::White => [1, 6, 0, 7],
+            PieceColor::Black => [6, 1, 7, 0],
+        };
+
         let handle_color = |x: usize, color: PieceColor| match x {
             0 | 7 => Some(Piece {
                 variant: PieceVariant::Castle,
@@ -445,54 +466,39 @@ impl Board {
                 color,
             }),
             3 => Some(Piece {
-                variant: piece_exception_variant.0,
+                variant: piece_exception_variant[0],
                 color,
             }),
             4 => Some(Piece {
-                variant: piece_exception_variant.1,
+                variant: piece_exception_variant[1],
                 color,
             }),
             _ => unreachable!(),
         };
 
-        let rows = match *teamcolor {
-            PieceColor::White => (1, 6, 0, 7),
-            PieceColor::Black => (6, 1, 7, 0),
-        };
-
         // for each file
         for column in 0..8 {
-            // everything in rank 1 or 6 will be a black pawn
-            squares[rows.0][column].piece = Some(Piece {
+            // everything in rank 1 and 6 will be a pawn
+            pieces[rows[0]][column] = Some(Piece {
                 variant: PieceVariant::Pawn,
                 color: PieceColor::Black,
             });
-            // everything in rank 6 or 1 will be a white pawn
-            squares[rows.1][column].piece = Some(Piece {
+            pieces[rows[1]][column] = Some(Piece {
                 variant: PieceVariant::Pawn,
                 color: PieceColor::White,
             });
 
-            squares[rows.2][column].piece = handle_color(column, PieceColor::Black);
-            squares[rows.3][column].piece = handle_color(column, PieceColor::White);
+            // pieces on rank 7 and 0
+            pieces[rows[2]][column] = handle_color(column, PieceColor::Black);
+            pieces[rows[3]][column] = handle_color(column, PieceColor::White);
         }
 
-        Self { squares }
+        Self { pieces }
     }
 
-    pub fn get_square(&self, column: usize, row: usize) -> Option<&Square> {
-        self.squares.get(row)?.get(column)
+    pub fn get_square(&self, column: usize, row: usize) -> Option<&Piece> {
+        self.pieces.get(row)?.get(column)?.as_ref()
     }
-
-    pub fn get_square_mut(&mut self, column: usize, row: usize) -> Option<&mut Square> {
-        self.squares.get_mut(row)?.get_mut(column)
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Square {
-    pub piece: Option<Piece>,
-    pub is_focused: bool,
 }
 
 #[derive(Debug)]

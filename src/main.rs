@@ -32,10 +32,10 @@ fn handle_mouse_keypress_on_ongoing_game(
     let (column, row) = board::into_relative_position(x, y);
     let (column, row) = (column as usize, row as usize);
 
-    let square = chessboard.get_square(column, row).unwrap();
+    let piece = chessboard.get_square(column, row);
     let is_focused = cached.focused_square.is_some();
 
-    match square.piece {
+    match piece {
         Some(piece) if piece.color != cached.current_turn && is_focused => {
             let prev_move = cached.focused_square.unwrap();
             State::Move(board::Move {
@@ -155,12 +155,12 @@ fn handle_state(
                     continue;
                 }
 
-                let square = chessboard.get_square(pos_data.0[0], pos_data.0[1]).unwrap();
-                if square.piece.is_none() {
+                let piece = chessboard.get_square(pos_data.0[0], pos_data.0[1]);
+                if piece.is_none() {
                     cached.is_castling_pieces_unmoved[index] = false;
                     continue;
                 }
-                if square.piece.unwrap().variant != pos_data.1 {
+                if piece.unwrap().variant != pos_data.1 {
                     cached.is_castling_pieces_unmoved[index] = false;
                 }
             }
