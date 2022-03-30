@@ -81,6 +81,7 @@ fn handle_mouse_keypress(
                 _ => State::Unknown,
             }
         }
+        MouseButton::Left => State::Unfocus,
         _ => State::Unknown,
     }
 }
@@ -117,16 +118,21 @@ fn handle_state(
     match state {
         State::Focus { column, row } => {
             let square_index = row * 8 + column;
-            // focus the square
+            // make the selected square blue
             cached.focused_square = Some((column, row));
+            // make the square yellow that is targetable by the focused piece
             cached.target_squares = board::get_target_squares(
                 cached.available_moves.get(&square_index).unwrap_or(&vec![]),
             );
+            // update the canvas
             render(canvas, chessboard, pieces_texture, cached)?;
         }
         State::Unfocus => {
+            // clear the cache
             cached.focused_square = None;
             cached.target_squares = vec![];
+            // update the canvas
+            render(canvas, chessboard, pieces_texture, cached)?;
         }
         State::Move(move_data) => {
             // unfocus if its not a valid move
@@ -139,7 +145,9 @@ fn handle_state(
             }
 
             if board::is_move_castling(&move_data, cached) {
+                // move the king
                 board::move_board_piece(chessboard, &move_data);
+                // move the castle
                 board::move_board_piece(
                     chessboard,
                     &board::get_castling_move_data(move_data.target),
@@ -151,6 +159,7 @@ fn handle_state(
 
             // check if the pieces used for castling is moved
             for (index, pos_data) in cached.castling_pieces_initial_position.iter().enumerate() {
+                // ignore if it's already moved
                 if !cached.is_castling_pieces_unmoved[index] {
                     continue;
                 }
@@ -177,10 +186,16 @@ fn handle_state(
             cached.target_squares = vec![];
             cached.available_moves = board::generate_moves(chessboard, cached);
 
+            // update canvas
             render(canvas, chessboard, pieces_texture, cached)?;
         }
+
         State::SelectTeam(color) => {
+            // if the user selected a team
+
+            // re-initialize the board based on the user choice
             *chessboard = board::Board::color(&color);
+            // change the current game state
             cached.current_game_state = cache::GameState::OngoingGame;
             cached.player_color = color;
             cached.available_moves = board::generate_moves(chessboard, cached);
@@ -208,6 +223,7 @@ fn render(
 ) -> Result<(), Error> {
     use cache::GameState as GS;
     match cached.current_game_state {
+        // user is choosing whether black or white
         GS::SelectingTeam => {
             canvas.set_draw_color(Color::RGB(250, 229, 210));
             canvas.clear();
@@ -215,6 +231,7 @@ fn render(
             render_graphical_selection(canvas)?;
             canvas.present();
         }
+        // render the game based on the data
         GS::OngoingGame => {
             // fill background
             canvas.set_draw_color(Color::RGB(250, 229, 210));
@@ -224,6 +241,7 @@ fn render(
 
             canvas.present();
         }
+
         GS::_YouWin => {}
         GS::_YouLose => {}
     }
@@ -259,15 +277,21 @@ fn main() -> Result<(), Error> {
         .position_centered()
         .build()?;
 
+    // make canvas
     let mut canvas: WindowCanvas = window.into_canvas().build()?;
 
+    // used to draw the chess pieces on the canvas
     let texture_creator = canvas.texture_creator();
     let pieces_texture = texture_creator.load_texture("assets/chess_pieces.png")?;
 
+    // game data
     let mut cached = cache::Cache::init();
     let mut chessboard = board::Board::init();
+
+    // render the initialized game
     render(&mut canvas, &chessboard, &pieces_texture, &cached)?;
 
+    // event listener
     let mut events = sdl_context.event_pump().unwrap();
     'keep_alive: loop {
         for event in events.poll_iter() {
