@@ -10,6 +10,7 @@ pub struct Cache {
     pub king_initial_column: usize,
     pub is_castling_pieces_unmoved: [bool; 6],
     pub castling_pieces_initial_position: [([usize; 2], PieceVariant); 6],
+    pub recent_promoting_pawn: Option<(usize, usize)>,
 }
 
 impl Cache {
@@ -24,6 +25,7 @@ impl Cache {
             king_initial_column: 4,
             is_castling_pieces_unmoved: [true, true, true, true, true, true],
             castling_pieces_initial_position: [([2; 2], PieceVariant::King); 6],
+            recent_promoting_pawn: None,
         }
     }
 }
@@ -31,6 +33,7 @@ impl Cache {
 pub enum GameState {
     SelectingTeam,
     OngoingGame,
+    PromotingPawn,
     _YouWin,
     _YouLose,
 }

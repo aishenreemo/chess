@@ -20,6 +20,7 @@ enum State {
     Unfocus,
     Move(board::Move),
     SelectTeam(PieceColor),
+    PromotePawn(piece::PieceVariant),
     Unknown,
 }
 
@@ -64,6 +65,28 @@ fn handle_mouse_keypress_on_selecting_team(x: u32) -> State {
     }
 }
 
+fn handle_mouse_keypress_on_promoting_pawn(x: i32) -> State {
+    use piece::PieceVariant;
+    let margin_offset: u32 = 10;
+    let rect_x = (constants::BOARD_X_OFFSET + constants::SQUARE_IN_BOARD_SIZE as f64
+        - margin_offset as f64) as i32;
+    let constant = ((constants::SQUARE_IN_BOARD_SIZE * 6 + margin_offset * 2) / 5) as i32;
+    let promoting_pieces = [
+        PieceVariant::Queen,
+        PieceVariant::Castle,
+        PieceVariant::Knight,
+        PieceVariant::Bishop,
+    ];
+    for (i, piece_variant) in promoting_pieces.iter().enumerate() {
+        let piece_x =
+            rect_x + ((i as i32 + 1) * constant) - (constants::SQUARE_IN_BOARD_SIZE as i32 / 2);
+        if piece_x < x && x < piece_x + constants::SQUARE_IN_BOARD_SIZE as i32 {
+            return State::PromotePawn(*piece_variant);
+        }
+    }
+    State::PromotePawn(PieceVariant::Pawn)
+}
+
 fn handle_mouse_keypress(
     mouse_btn: MouseButton,
     x: i32,
@@ -78,6 +101,9 @@ fn handle_mouse_keypress(
             match cached.current_game_state {
                 GS::SelectingTeam => handle_mouse_keypress_on_selecting_team(x),
                 GS::OngoingGame => handle_mouse_keypress_on_ongoing_game(x, y, cached, chessboard),
+                GS::PromotingPawn if board::is_cursor_inside_promoting_selection(x, y) => {
+                    handle_mouse_keypress_on_promoting_pawn(x as i32)
+                }
                 _ => State::Unknown,
             }
         }
@@ -144,19 +170,19 @@ fn handle_state(
                 return Ok(());
             }
 
-            if board::is_move_castling(&move_data, cached) {
-                // move the king
-                board::move_board_piece(chessboard, &move_data);
+            board::move_board_piece(chessboard, &move_data);
+            if board::is_move_promoting_pawn(&move_data, chessboard, cached) {
+                cached.recent_promoting_pawn = Some(move_data.target);
+                cached.current_game_state = cache::GameState::PromotingPawn;
+                render(canvas, chessboard, pieces_texture, cached)?;
+                return Ok(());
+            } else if board::is_move_castling(&move_data, cached) {
                 // move the castle
                 board::move_board_piece(
                     chessboard,
                     &board::get_castling_move_data(move_data.target),
                 );
-            } else {
-                // move the piece
-                board::move_board_piece(chessboard, &move_data);
             }
-
             // check if the pieces used for castling is moved
             for (index, pos_data) in cached.castling_pieces_initial_position.iter().enumerate() {
                 // ignore if it's already moved
@@ -209,6 +235,32 @@ fn handle_state(
 
             render(canvas, chessboard, pieces_texture, cached)?;
         }
+
+        State::PromotePawn(variant) => {
+            if variant == piece::PieceVariant::Pawn {
+                return Ok(());
+            }
+            let (column, row) = cached.recent_promoting_pawn.take().unwrap();
+            chessboard.pieces[row][column] = Some(piece::Piece {
+                variant,
+                color: cached.current_turn,
+            });
+
+            cached.current_game_state = cache::GameState::OngoingGame;
+            cached.current_turn = if cached.current_turn == PieceColor::White {
+                PieceColor::Black
+            } else {
+                PieceColor::White
+            };
+
+            // unfocus the focused square
+            cached.focused_square = None;
+            cached.target_squares = vec![];
+            cached.available_moves = board::generate_moves(chessboard, cached);
+
+            // update canvas
+            render(canvas, chessboard, pieces_texture, cached)?;
+        }
         State::Unknown => (),
         _ => unreachable!(),
     }
@@ -241,9 +293,57 @@ fn render(
 
             canvas.present();
         }
+        GS::PromotingPawn => {
+            canvas.set_draw_color(Color::RGB(250, 229, 210));
+            canvas.clear();
 
+            board::render_graphical_board(canvas, board, pieces_texture, cached)?;
+            render_promoting_selection(canvas, cached, pieces_texture)?;
+            canvas.present();
+        }
         GS::_YouWin => {}
         GS::_YouLose => {}
+    }
+    Ok(())
+}
+
+fn render_promoting_selection(
+    canvas: &mut WindowCanvas,
+    cached: &crate::cache::Cache,
+    pieces_texture: &Texture,
+) -> Result<(), Error> {
+    use piece::PieceVariant;
+    let margin_top_bottom = (constants::BOARD_IN_WINDOW_SIZE - constants::SQUARE_IN_BOARD_SIZE) / 2;
+    let margin_left_right = constants::SQUARE_IN_BOARD_SIZE;
+    let margin_offset: u32 = 10;
+
+    let main_rect = Rect::new(
+        (constants::BOARD_X_OFFSET + margin_left_right as f64 - margin_offset as f64) as i32,
+        (constants::BOARD_Y_OFFSET + margin_top_bottom as f64 - margin_offset as f64) as i32,
+        constants::SQUARE_IN_BOARD_SIZE * 6 + margin_offset * 2,
+        constants::SQUARE_IN_BOARD_SIZE + margin_offset * 2,
+    );
+    canvas.set_draw_color(Color::RGB(250, 229, 210));
+    canvas.fill_rect(main_rect)?;
+    canvas.set_draw_color(Color::RGB(122, 95, 71));
+    canvas.draw_rect(main_rect)?;
+
+    let constant = ((constants::SQUARE_IN_BOARD_SIZE * 6 + margin_offset * 2) / 5) as i32;
+    let promoting_pieces = [
+        PieceVariant::Queen,
+        PieceVariant::Castle,
+        PieceVariant::Knight,
+        PieceVariant::Bishop,
+    ];
+    for (i, piece_variant) in promoting_pieces.iter().enumerate() {
+        let x = main_rect.x() + ((i as i32 + 1) * constant)
+            - (constants::SQUARE_IN_BOARD_SIZE as i32 / 2);
+        let y = main_rect.y() + margin_offset as i32;
+        let piece = piece::Piece {
+            variant: *piece_variant,
+            color: cached.current_turn,
+        };
+        piece::render_graphical_piece(canvas, pieces_texture, &piece, x as u32, y as u32)?;
     }
     Ok(())
 }

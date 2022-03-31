@@ -331,6 +331,35 @@ pub fn get_castling_move_data(move_data_target: (usize, usize)) -> Move {
     }
 }
 
+pub fn is_cursor_inside_promoting_selection(x: u32, y: u32) -> bool {
+    let margin_top_bottom = (constants::BOARD_IN_WINDOW_SIZE - constants::SQUARE_IN_BOARD_SIZE) / 2;
+    let margin_left_right = constants::SQUARE_IN_BOARD_SIZE;
+    let margin_offset: u32 = 10;
+    let width = constants::SQUARE_IN_BOARD_SIZE * 6 + margin_offset * 2;
+    let height = constants::SQUARE_IN_BOARD_SIZE + margin_offset * 2;
+    let rect_x = constants::BOARD_X_OFFSET + margin_left_right as f64 - margin_offset as f64;
+    let rect_y = constants::BOARD_Y_OFFSET + margin_top_bottom as f64 - margin_offset as f64;
+
+    rect_x < x as f64
+        && rect_y < y as f64
+        && (x as f64) < rect_x + width as f64
+        && (y as f64) < rect_y + height as f64
+}
+
+pub fn is_move_promoting_pawn(move_data: &Move, chessboard: &Board, cached: &Cache) -> bool {
+    let end_row = if cached.current_turn == cached.player_color {
+        0
+    } else {
+        7
+    };
+    chessboard.get_square(move_data.target.0, move_data.target.1)
+        == Some(&Piece {
+            variant: PieceVariant::Pawn,
+            color: cached.current_turn,
+        })
+        && end_row == move_data.target.1
+}
+
 pub fn is_move_castling(move_data: &Move, cached: &Cache) -> bool {
     let enemy_king = (cached.king_initial_column, 0);
     let ally_king = (cached.king_initial_column, 7);
