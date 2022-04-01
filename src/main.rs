@@ -170,6 +170,7 @@ fn handle_state(
                 return Ok(());
             }
 
+            let mut is_move_advancing_pawn_bool = false;
             board::move_board_piece(chessboard, &move_data);
             if board::is_move_promoting_pawn(&move_data, chessboard, cached) {
                 cached.recent_promoting_pawn = Some(move_data.target);
@@ -182,6 +183,16 @@ fn handle_state(
                     chessboard,
                     &board::get_castling_move_data(move_data.target),
                 );
+            } else if board::is_move_advancing_pawn(&move_data, chessboard) {
+                cached.recent_advancing_pawn = Some(move_data.target);
+                is_move_advancing_pawn_bool = true;
+            } else if board::is_move_en_passant(&move_data, chessboard, cached) {
+                let (column, row) = cached.recent_advancing_pawn.take().unwrap();
+                chessboard.pieces[row][column] = None;
+            }
+
+            if !is_move_advancing_pawn_bool {
+                cached.recent_advancing_pawn = None;
             }
             // check if the pieces used for castling is moved
             for (index, pos_data) in cached.castling_pieces_initial_position.iter().enumerate() {

@@ -117,54 +117,52 @@ fn generate_sliding_moves(
 
 fn generate_pawn_moves(chessboard: &Board, cached: &Cache, column: usize, row: usize) -> Vec<Move> {
     let mut pawn_legal_moves = vec![];
-    let is_direction_forward = cached.current_turn == cached.player_color;
-    let start_row = if is_direction_forward { 6 } else { 1 };
-    let start_square_index = row * 8 + column;
-    let num_directions = if start_row == row { 2 } else { 1 };
+    let is_pawn_ally = cached.current_turn == cached.player_color;
+    let start_row = if is_pawn_ally { 6 } else { 1 };
 
-    let mut i = 0;
-    while i < num_directions {
-        let offset = (i as i32 + 1) * if is_direction_forward { -8 } else { 8 };
-        let target_square_index = (start_square_index as i32 + offset) as usize;
-        let target_column = target_square_index % 8;
-        let target_row = target_square_index / 8;
-
-        let target_square = chessboard.get_square(target_column, target_row);
-        match target_square {
-            // if it found a piece
-            Some(_) => break,
-            // if it's an empty square
-            None => pawn_legal_moves.push(Move {
-                start: (column, row),
-                target: (target_column, target_row),
-            }),
+    // forward
+    let pawn_forward_offset = if is_pawn_ally { -1 } else { 1 };
+    let pawn_forward_limit = if start_row == row { 2 } else { 1 };
+    let mut i: u32 = 1;
+    while i <= pawn_forward_limit {
+        let offset = pawn_forward_offset * i as i32;
+        let target_row = row as i32 + offset;
+        if !(0..8).contains(&target_row) {
+            break;
         }
 
+        match chessboard.get_square(column, target_row as usize) {
+            Some(_piece) => break,
+            None => pawn_legal_moves.push(Move {
+                start: (column, row),
+                target: (column, target_row as usize),
+            }),
+        }
         i += 1;
     }
 
-    let pawn_eating_directions = if is_direction_forward {
-        [-9, -7]
-    } else {
-        [7, 9]
-    };
-    for (index, offset) in pawn_eating_directions.iter().enumerate() {
-        // the pawn is at left/right edge, therefore the left/right square doesnt exist
-        if column == 0 && index == 0 || column == 7 && index == 1 {
+    let pawn_eating_offsets = vec![(-1, pawn_forward_offset), (1, pawn_forward_offset)];
+    for offset in pawn_eating_offsets.iter() {
+        let target_row = row as i32 + offset.1;
+        let target_column = column as i32 + offset.0;
+
+        if !(0..8).contains(&target_row) || !(0..8).contains(&target_column) {
             continue;
         }
 
-        let target_square_index = (start_square_index as i32 + offset) as usize;
-        let target_column = target_square_index % 8;
-        let target_row = target_square_index / 8;
-
+        let (target_column, target_row) = (target_column as usize, target_row as usize);
         let target_square = chessboard.get_square(target_column, target_row);
+
         match target_square {
-            // if it found an enemy piece
-            Some(piece) if piece.color != cached.current_turn => pawn_legal_moves.push(Move {
+            Some(piece) if cached.current_turn != piece.color => pawn_legal_moves.push(Move {
                 start: (column, row),
                 target: (target_column, target_row),
             }),
+            None if Some((target_column, row)) == cached.recent_advancing_pawn => pawn_legal_moves
+                .push(Move {
+                    start: (column, row),
+                    target: (target_column, target_row),
+                }),
             _ => continue,
         }
     }
@@ -360,6 +358,35 @@ pub fn is_move_promoting_pawn(move_data: &Move, chessboard: &Board, cached: &Cac
         && end_row == move_data.target.1
 }
 
+pub fn is_move_advancing_pawn(move_data: &Move, chessboard: &Board) -> bool {
+    let (column, row) = move_data.target;
+    let target_square = chessboard.get_square(column, row);
+
+    match target_square {
+        Some(piece) if piece.variant == PieceVariant::Pawn => {
+            let diff = row as i32 - move_data.start.1 as i32;
+            diff.abs() == 2
+        }
+        _ => false,
+    }
+}
+
+pub fn is_move_en_passant(move_data: &Move, chessboard: &Board, cached: &Cache) -> bool {
+    let (column, row) = move_data.target;
+    let target_square = chessboard.get_square(column, row);
+    let pawn_forward_offset = if cached.current_turn == cached.player_color {
+        -1
+    } else {
+        1
+    };
+    match target_square {
+        Some(piece) if piece.variant == PieceVariant::Pawn => {
+            cached.recent_advancing_pawn
+                == Some((column, (row as i32 - pawn_forward_offset) as usize))
+        }
+        _ => false,
+    }
+}
 pub fn is_move_castling(move_data: &Move, cached: &Cache) -> bool {
     let enemy_king = (cached.king_initial_column, 0);
     let ally_king = (cached.king_initial_column, 7);

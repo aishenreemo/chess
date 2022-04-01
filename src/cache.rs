@@ -11,6 +11,7 @@ pub struct Cache {
     pub is_castling_pieces_unmoved: [bool; 6],
     pub castling_pieces_initial_position: [([usize; 2], PieceVariant); 6],
     pub recent_promoting_pawn: Option<(usize, usize)>,
+    pub recent_advancing_pawn: Option<(usize, usize)>,
 }
 
 impl Cache {
@@ -26,6 +27,7 @@ impl Cache {
             is_castling_pieces_unmoved: [true, true, true, true, true, true],
             castling_pieces_initial_position: [([2; 2], PieceVariant::King); 6],
             recent_promoting_pawn: None,
+            recent_advancing_pawn: None,
         }
     }
 }
