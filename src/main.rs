@@ -1,32 +1,27 @@
 pub mod config;
-mod display;
 pub mod game;
 
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+mod display;
+mod listener;
 
-use display::render;
+use sdl2::image::LoadTexture;
+use sdl2::render::Texture;
+
+use game::GameState;
+use game::TeamColor;
 
 pub type Error = Box<dyn ::std::error::Error>;
 
-enum Command {
+pub struct Textures<'a> {
+    pub pieces: Texture<'a>,
+}
+
+pub enum Command {
+    SelectTeam(TeamColor),
+    ExitGame,
+    Play,
     Quit,
     Idle,
-}
-
-fn handle_keyboard_event(keycode: Option<Keycode>) -> Command {
-    match keycode {
-        Some(Keycode::Escape) => Command::Quit,
-        _ => Command::Idle,
-    }
-}
-
-fn handle_event(event: Event) -> Command {
-    match event {
-        Event::KeyDown { keycode, .. } => handle_keyboard_event(keycode),
-        Event::Quit { .. } => Command::Quit,
-        _ => Command::Idle,
-    }
 }
 
 fn main() -> Result<(), Error> {
@@ -42,25 +37,37 @@ fn main() -> Result<(), Error> {
         .build()?;
 
     let mut canvas = window.into_canvas().build()?;
+    let mut game = game::initialize_game(&canvas);
+    let texture_creator = canvas.texture_creator();
+    let textures = Textures {
+        pieces: texture_creator.load_texture("assets/chess_pieces.png")?,
+    };
 
-    let game = game::initialize_game(&canvas);
+    // render start menu
+    display::render(&mut canvas, &configuration, &game, &textures)?;
 
-    render(&mut canvas, &configuration, &game)?;
-
+    // event loop
     let mut event_pump = sdl_context.event_pump()?;
-
     'running: loop {
         for event in event_pump.poll_iter() {
-            match handle_event(event) {
+            match listener::handle_event(event, &game, &configuration, &canvas) {
                 Command::Quit => break 'running,
+                Command::Play => game.state = GameState::TeamSelection,
+                Command::ExitGame => game.state = GameState::StartMenu,
+                Command::SelectTeam(color) => {
+                    game.state = GameState::BoardGame;
+                    game::init_chess_position(&mut game, color);
+                }
                 Command::Idle => (),
             }
         }
 
-        // render(&mut canvas, &configuration, &game)?;
+        display::render(&mut canvas, &configuration, &game, &textures)?;
 
-        // 40 fps
+        // 40 loops per second
         ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 40));
     }
+
+    // process exit
     Ok(())
 }
