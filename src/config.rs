@@ -16,9 +16,7 @@ pub struct Palette {
     pub default_dark_color: Color,
 }
 
-pub fn initialize_config<'ttf>(
-    ttf_context: &'ttf Sdl2TtfContext,
-) -> Result<Config<'ttf>, crate::Error> {
+pub fn initialize_config(ttf_context: &'_ Sdl2TtfContext) -> Result<Config<'_>, crate::Error> {
     Ok(Config {
         window_size: 512.0,
         palette: Palette {
@@ -26,6 +24,6 @@ pub fn initialize_config<'ttf>(
             default_light_color: Color::RGB(250, 229, 210),
             default_background_color: Color::RGB(250, 229, 210),
         },
-        font: ttf_context.load_font("assets/fonts/AmaticSC-Regular.ttf", 128)?,
+        font: ttf_context.load_font("assets/fonts/Amatic-Bold.ttf", 128)?,
     })
 }
