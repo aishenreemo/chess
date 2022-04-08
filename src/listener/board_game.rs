@@ -24,33 +24,33 @@ pub fn into_relative_position(game: &Game, pos: (i32, i32)) -> (usize, usize) {
     )
 }
 
-fn handle_mouse_on_board(game: &Game, pos: (i32, i32)) -> Command {
+fn handle_mouse_on_board(game: &Game, pos: (i32, i32)) -> Vec<Command> {
     let (column, row) = into_relative_position(game, pos);
     println!("{column} - {row}");
-    Command::Idle
+    vec![Command::Idle]
 }
 
-fn handle_mousedown(game: &Game, mouse_btn: MouseButton, pos: (i32, i32)) -> Command {
+fn handle_mousedown(game: &Game, mouse_btn: MouseButton, pos: (i32, i32)) -> Vec<Command> {
     match mouse_btn {
         MouseButton::Left if is_cursor_inside_board(game, pos) => handle_mouse_on_board(game, pos),
-        _ => Command::Idle,
+        _ => vec![Command::Idle],
     }
 }
 
-fn handle_keydown(keycode: Option<Keycode>) -> Command {
+fn handle_keydown(keycode: Option<Keycode>) -> Vec<Command> {
     match keycode {
-        Some(Keycode::Escape) => Command::ExitGame,
-        _ => Command::Idle,
+        Some(Keycode::Escape) => vec![Command::ExitGame],
+        _ => vec![Command::Idle],
     }
 }
 
-pub fn handle_event(event: Event, game: &Game) -> Command {
+pub fn handle_event(event: Event, game: &Game) -> Vec<Command> {
     match event {
-        Event::Quit { .. } => Command::Quit,
+        Event::Quit { .. } => vec![Command::Quit],
         Event::KeyDown { keycode, .. } => handle_keydown(keycode),
         Event::MouseButtonDown {
             mouse_btn, x, y, ..
         } => handle_mousedown(game, mouse_btn, (x, y)),
-        _ => Command::Idle,
+        _ => vec![Command::Idle],
     }
 }

@@ -30,29 +30,29 @@ fn is_cursor_inside_black_rect(game: &Game, pos: (i32, i32)) -> bool {
     black_rect.contains_point(pos)
 }
 
-fn handle_mousedown(game: &Game, mouse_btn: MouseButton, pos: (i32, i32)) -> Command {
+fn handle_mousedown(game: &Game, mouse_btn: MouseButton, pos: (i32, i32)) -> Vec<Command> {
     match mouse_btn {
         MouseButton::Left if is_cursor_inside_white_rect(game, pos) => {
-            Command::SelectTeam(TeamColor::Black)
+            vec![Command::SelectTeam(TeamColor::Black)]
         }
         MouseButton::Left if is_cursor_inside_black_rect(game, pos) => {
-            Command::SelectTeam(TeamColor::White)
+            vec![Command::SelectTeam(TeamColor::White)]
         }
-        _ => Command::Idle,
+        _ => vec![Command::Idle],
     }
 }
 
-fn handle_keydown(_keycode: Option<Keycode>) -> Command {
-    Command::Idle
+fn handle_keydown(_keycode: Option<Keycode>) -> Vec<Command> {
+    vec![Command::Idle]
 }
 
-pub fn handle_event(event: Event, game: &Game) -> Command {
+pub fn handle_event(event: Event, game: &Game) -> Vec<Command> {
     match event {
-        Event::Quit { .. } => Command::Quit,
+        Event::Quit { .. } => vec![Command::Quit],
         Event::KeyDown { keycode, .. } => handle_keydown(keycode),
         Event::MouseButtonDown {
             mouse_btn, x, y, ..
         } => handle_mousedown(game, mouse_btn, (x, y)),
-        _ => Command::Idle,
+        _ => vec![Command::Idle],
     }
 }

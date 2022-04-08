@@ -7,8 +7,7 @@ mod listener;
 use sdl2::image::LoadTexture;
 use sdl2::render::Texture;
 
-use game::GameState;
-use game::TeamColor;
+use game::{Game, GameState, TeamColor};
 
 pub type Error = Box<dyn ::std::error::Error>;
 
@@ -22,6 +21,23 @@ pub enum Command {
     Play,
     Quit,
     Idle,
+}
+
+fn select_team(game: &mut Game, color: TeamColor) {
+    game.state = GameState::BoardGame;
+    game::init_chess_position(game, color)
+}
+
+fn update(instructions: Vec<Command>, game: &mut Game) {
+    for command in instructions {
+        match command {
+            Command::Quit => std::process::exit(0),
+            Command::Play => game.state = GameState::TeamSelection,
+            Command::ExitGame => game.state = GameState::StartMenu,
+            Command::SelectTeam(color) => select_team(game, color),
+            Command::Idle => (),
+        }
+    }
 }
 
 fn main() -> Result<(), Error> {
@@ -48,18 +64,9 @@ fn main() -> Result<(), Error> {
 
     // event loop
     let mut event_pump = sdl_context.event_pump()?;
-    'running: loop {
+    loop {
         for event in event_pump.poll_iter() {
-            match listener::handle_event(event, &game) {
-                Command::Quit => break 'running,
-                Command::Play => game.state = GameState::TeamSelection,
-                Command::ExitGame => game.state = GameState::StartMenu,
-                Command::SelectTeam(color) => {
-                    game.state = GameState::BoardGame;
-                    game::init_chess_position(&mut game, color);
-                }
-                Command::Idle => (),
-            }
+            update(listener::handle_event(event, &game), &mut game);
         }
 
         display::render(&mut canvas, &configuration, &game, &textures)?;
@@ -67,7 +74,4 @@ fn main() -> Result<(), Error> {
         // 40 loops per second
         ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 40));
     }
-
-    // process exit
-    Ok(())
 }
