@@ -1,7 +1,10 @@
+use crate::produce::{self, Move};
 use crate::Error;
 
 use sdl2::render::{TextureCreator, WindowCanvas};
 use sdl2::video::WindowContext;
+
+use std::collections::HashSet;
 
 pub struct Game {
     pub state: GameState,
@@ -27,6 +30,8 @@ pub struct Cache {
 pub struct GameData {
     pub focused_square: Option<(usize, usize)>,
     pub current_turn: TeamColor,
+    pub available_moves: HashSet<Move>,
+    pub danger_squares: Vec<(usize, usize)>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -90,6 +95,8 @@ fn initialize_data() -> GameData {
     GameData {
         focused_square: None,
         current_turn: TeamColor::White,
+        available_moves: HashSet::new(),
+        danger_squares: vec![],
     }
 }
 
@@ -139,5 +146,5 @@ pub fn init_chess_position(game: &mut Game, color: TeamColor) {
     }
 
     game.board = board;
-    game.cache.data = initialize_data();
+    game.cache.data.available_moves = produce::generate_moves(game);
 }

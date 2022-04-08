@@ -1,4 +1,5 @@
 use crate::game::{self, Game, GameState, TeamColor};
+use crate::produce::{self, Move};
 use crate::Command;
 
 fn select_team(game: &mut Game, color: TeamColor) {
@@ -8,6 +9,19 @@ fn select_team(game: &mut Game, color: TeamColor) {
 
 fn focus_square(game: &mut Game, column: usize, row: usize) {
     game.cache.data.focused_square = Some((column, row));
+    game.cache.data.danger_squares = game
+        .cache
+        .data
+        .available_moves
+        .iter()
+        .filter(|move_data| move_data.from == (column, row))
+        .map(|move_data| move_data.to)
+        .collect();
+}
+
+fn unfocus_square(game: &mut Game) {
+    game.cache.data.focused_square = None;
+    game.cache.data.danger_squares.clear();
 }
 
 fn change_turn(game: &mut Game) {
@@ -16,10 +30,12 @@ fn change_turn(game: &mut Game) {
     } else {
         TeamColor::White
     };
+    game.cache.data.available_moves = produce::generate_moves(game);
 }
 
-fn move_piece(game: &mut Game, from: (usize, usize), to: (usize, usize)) {
-    game.board[to.1][to.0] = game.board[from.1][from.0].take();
+fn move_piece(game: &mut Game, move_data: Move) {
+    game.board[move_data.to.1][move_data.to.0] =
+        game.board[move_data.from.1][move_data.from.0].take();
 }
 
 pub fn update(instructions: Vec<Command>, game: &mut Game) {
@@ -31,8 +47,8 @@ pub fn update(instructions: Vec<Command>, game: &mut Game) {
             Command::SelectTeam(color) => select_team(game, color),
             Command::Focus(c, r) => focus_square(game, c, r),
             Command::ChangeTurn => change_turn(game),
-            Command::Unfocus => game.cache.data.focused_square = None,
-            Command::Move { from, to, .. } => move_piece(game, from, to),
+            Command::Unfocus => unfocus_square(game),
+            Command::Move(move_data) => move_piece(game, move_data),
             Command::Idle => (),
         }
     }

@@ -1,5 +1,6 @@
 use crate::game::{Game, Piece};
-use crate::{Command, MoveType};
+use crate::produce::{Move, MoveType};
+use crate::Command;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -39,11 +40,11 @@ fn handle_mouse_on_board(game: &Game, pos: (i32, i32)) -> Vec<Command> {
         Some(piece) if !is_piece_ally(game, piece) && has_focused_square(game) => vec![
             Command::ChangeTurn,
             Command::Unfocus,
-            Command::Move {
+            Command::Move(Move {
                 variant: MoveType::Capture,
                 from: game.cache.data.focused_square.unwrap(),
                 to: (column, row),
-            },
+            }),
         ],
         Some(piece) if !is_piece_ally(game, piece) && !has_focused_square(game) => {
             vec![Command::Unfocus]
@@ -52,11 +53,11 @@ fn handle_mouse_on_board(game: &Game, pos: (i32, i32)) -> Vec<Command> {
         None if has_focused_square(game) => vec![
             Command::ChangeTurn,
             Command::Unfocus,
-            Command::Move {
+            Command::Move(Move {
                 variant: MoveType::NonCapture,
                 from: game.cache.data.focused_square.unwrap(),
                 to: (column, row),
-            },
+            }),
         ],
         _ => vec![],
     }

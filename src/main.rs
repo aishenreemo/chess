@@ -1,5 +1,6 @@
 pub mod config;
 pub mod game;
+pub mod produce;
 
 mod amend;
 mod display;
@@ -9,6 +10,7 @@ use sdl2::image::LoadTexture;
 use sdl2::render::Texture;
 
 use game::TeamColor;
+use produce::Move;
 
 pub type Error = Box<dyn ::std::error::Error>;
 
@@ -16,17 +18,8 @@ pub struct Textures<'a> {
     pub pieces: Texture<'a>,
 }
 
-pub enum MoveType {
-    Capture,
-    NonCapture,
-}
-
 pub enum Command {
-    Move {
-        variant: MoveType,
-        from: (usize, usize),
-        to: (usize, usize),
-    },
+    Move(Move),
     ChangeTurn,
     Unfocus,
     Focus(usize, usize),

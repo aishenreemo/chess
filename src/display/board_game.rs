@@ -51,6 +51,9 @@ pub fn render(
             if Some((column, row)) == game.cache.data.focused_square {
                 canvas.set_draw_color(configuration.palette.blue);
                 canvas.fill_rect(cell_rect_focused)?;
+            } else if game.cache.data.danger_squares.contains(&(column, row)) {
+                canvas.set_draw_color(configuration.palette.yellow);
+                canvas.fill_rect(cell_rect_focused)?;
             }
 
             if let Some(ref piece) = square {
