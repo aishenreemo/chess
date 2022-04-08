@@ -14,20 +14,12 @@ pub fn render(
 ) -> Result<(), Error> {
     super::render_canvas_background(canvas, &configuration.palette)?;
 
-    let default_window_size = configuration.window_size;
-    let window_size = canvas.output_size()?;
-
-    let board_size = window_size.0 as f32 * (400.0 / default_window_size);
-    let square_size = board_size / 8.0;
-    let board_x_offset = (window_size.0 as f32 - board_size) / 2.0;
-    let board_y_offset = window_size.0 as f32 * 0.05;
-
     // stroke the chess board border
     let board_rect = Rect::new(
-        board_x_offset as i32,
-        board_y_offset as i32,
-        board_size as u32,
-        board_size as u32,
+        game.cache.board_offset.0 as i32,
+        game.cache.board_offset.1 as i32,
+        game.cache.board_size.0 as u32,
+        game.cache.board_size.1 as u32,
     );
 
     canvas.set_draw_color(configuration.palette.default_dark_color);
@@ -35,22 +27,21 @@ pub fn render(
 
     for (row, squares) in game.board.into_iter().enumerate() {
         for (column, square) in squares.into_iter().enumerate() {
-            let (x, y) = into_absolute_position(
-                column as u32,
-                row as u32,
-                board_x_offset,
-                board_y_offset,
-                square_size,
-            );
+            let (x, y) = into_absolute_position(game, (column, row));
 
-            let cell_rect = Rect::new(x as i32, y as i32, square_size as u32, square_size as u32);
+            let cell_rect = Rect::new(
+                x as i32,
+                y as i32,
+                game.cache.square_size.0 as u32,
+                game.cache.square_size.1 as u32,
+            );
 
             if column % 2 != 0 && row % 2 == 0 || column % 2 == 0 && row % 2 != 0 {
                 canvas.fill_rect(cell_rect)?;
             }
 
             if let Some(ref piece) = square {
-                render_graphical_piece(canvas, textures, piece, x, y, square_size)?;
+                render_graphical_piece(canvas, textures, piece, x, y, game.cache.square_size)?;
             }
         }
     }
@@ -59,16 +50,10 @@ pub fn render(
     Ok(())
 }
 
-fn into_absolute_position(
-    column: u32,
-    row: u32,
-    x_offset: f32,
-    y_offset: f32,
-    square_size: f32,
-) -> (u32, u32) {
+fn into_absolute_position(game: &Game, pos: (usize, usize)) -> (u32, u32) {
     (
-        (column * square_size as u32) + x_offset as u32,
-        (row * square_size as u32) + y_offset as u32,
+        (pos.0 as u32 * game.cache.square_size.0 as u32) + game.cache.board_offset.0 as u32,
+        (pos.1 as u32 * game.cache.square_size.1 as u32) + game.cache.board_offset.1 as u32,
     )
 }
 
@@ -78,9 +63,14 @@ pub fn render_graphical_piece(
     piece: &Piece,
     x: u32,
     y: u32,
-    square_size: f32,
+    square_size: (f32, f32),
 ) -> Result<(), String> {
-    let rect = Rect::new(x as i32, y as i32, square_size as u32, square_size as u32);
+    let rect = Rect::new(
+        x as i32,
+        y as i32,
+        square_size.0 as u32,
+        square_size.1 as u32,
+    );
 
     canvas.copy(&textures.pieces, get_piece_rect(piece), rect)?;
     Ok(())
