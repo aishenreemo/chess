@@ -61,7 +61,7 @@ pub fn initialize_cache(canvas: &WindowCanvas) -> Result<Cache, Error> {
         window_size.0 * (400.0 / window_size.0),
         window_size.1 * (400.0 / window_size.1),
     );
-    println!("{board_size:?}");
+
     let board_offset = ((window_size.0 - board_size.0) / 2.0, (board_size.1 * 0.05));
     let square_size = (board_size.0 / 8.0, board_size.1 / 8.0);
 
