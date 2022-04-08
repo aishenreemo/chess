@@ -10,11 +10,23 @@ pub struct Game {
     pub cache: Cache,
 }
 
+impl Game {
+    pub fn get_square(&self, column: usize, row: usize) -> Option<&Piece> {
+        self.board.get(row)?.get(column)?.as_ref()
+    }
+}
+
 pub struct Cache {
     pub window_size: (f32, f32),
     pub board_size: (f32, f32),
     pub board_offset: (f32, f32),
     pub square_size: (f32, f32),
+    pub data: GameData,
+}
+
+pub struct GameData {
+    pub focused_square: Option<(usize, usize)>,
+    pub current_turn: TeamColor,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -54,7 +66,7 @@ pub fn initialize_game(canvas: &WindowCanvas) -> Result<Game, Error> {
     })
 }
 
-pub fn initialize_cache(canvas: &WindowCanvas) -> Result<Cache, Error> {
+fn initialize_cache(canvas: &WindowCanvas) -> Result<Cache, Error> {
     let window_size = canvas.output_size()?;
     let window_size = (window_size.0 as f32, window_size.1 as f32);
     let board_size = (
@@ -70,7 +82,15 @@ pub fn initialize_cache(canvas: &WindowCanvas) -> Result<Cache, Error> {
         board_size,
         board_offset,
         square_size,
+        data: initialize_data(),
     })
+}
+
+fn initialize_data() -> GameData {
+    GameData {
+        focused_square: None,
+        current_turn: TeamColor::White,
+    }
 }
 
 pub fn init_chess_position(game: &mut Game, color: TeamColor) {
@@ -119,4 +139,5 @@ pub fn init_chess_position(game: &mut Game, color: TeamColor) {
     }
 
     game.board = board;
+    game.cache.data = initialize_data();
 }

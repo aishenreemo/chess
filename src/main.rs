@@ -1,13 +1,14 @@
 pub mod config;
 pub mod game;
 
+mod amend;
 mod display;
 mod listener;
 
 use sdl2::image::LoadTexture;
 use sdl2::render::Texture;
 
-use game::{Game, GameState, TeamColor};
+use game::TeamColor;
 
 pub type Error = Box<dyn ::std::error::Error>;
 
@@ -15,29 +16,25 @@ pub struct Textures<'a> {
     pub pieces: Texture<'a>,
 }
 
+pub enum MoveType {
+    Capture,
+    NonCapture,
+}
+
 pub enum Command {
+    Move {
+        variant: MoveType,
+        from: (usize, usize),
+        to: (usize, usize),
+    },
+    ChangeTurn,
+    Unfocus,
+    Focus(usize, usize),
     SelectTeam(TeamColor),
     ExitGame,
     Play,
     Quit,
     Idle,
-}
-
-fn select_team(game: &mut Game, color: TeamColor) {
-    game.state = GameState::BoardGame;
-    game::init_chess_position(game, color)
-}
-
-fn update(instructions: Vec<Command>, game: &mut Game) {
-    for command in instructions {
-        match command {
-            Command::Quit => std::process::exit(0),
-            Command::Play => game.state = GameState::TeamSelection,
-            Command::ExitGame => game.state = GameState::StartMenu,
-            Command::SelectTeam(color) => select_team(game, color),
-            Command::Idle => (),
-        }
-    }
 }
 
 fn main() -> Result<(), Error> {
@@ -66,7 +63,7 @@ fn main() -> Result<(), Error> {
     let mut event_pump = sdl_context.event_pump()?;
     loop {
         for event in event_pump.poll_iter() {
-            update(listener::handle_event(event, &game), &mut game);
+            amend::update(listener::handle_event(event, &game), &mut game);
         }
 
         display::render(&mut canvas, &configuration, &game, &textures)?;

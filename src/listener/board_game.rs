@@ -1,5 +1,5 @@
-use crate::game::Game;
-use crate::Command;
+use crate::game::{Game, Piece};
+use crate::{Command, MoveType};
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -17,7 +17,15 @@ fn is_cursor_inside_board(game: &Game, pos: (i32, i32)) -> bool {
     board_rect.contains_point(pos)
 }
 
-pub fn into_relative_position(game: &Game, pos: (i32, i32)) -> (usize, usize) {
+fn is_piece_ally(game: &Game, piece: &Piece) -> bool {
+    piece.color == game.cache.data.current_turn
+}
+
+fn has_focused_square(game: &Game) -> bool {
+    game.cache.data.focused_square.is_some()
+}
+
+fn into_relative_position(game: &Game, pos: (i32, i32)) -> (usize, usize) {
     (
         ((pos.0 as f32 - game.cache.board_offset.0) / game.cache.square_size.0 as f32) as usize,
         ((pos.1 as f32 - game.cache.board_offset.1) / game.cache.square_size.1 as f32) as usize,
@@ -26,14 +34,39 @@ pub fn into_relative_position(game: &Game, pos: (i32, i32)) -> (usize, usize) {
 
 fn handle_mouse_on_board(game: &Game, pos: (i32, i32)) -> Vec<Command> {
     let (column, row) = into_relative_position(game, pos);
-    println!("{column} - {row}");
-    vec![Command::Idle]
+
+    match game.get_square(column, row) {
+        Some(piece) if !is_piece_ally(game, piece) && has_focused_square(game) => vec![
+            Command::ChangeTurn,
+            Command::Unfocus,
+            Command::Move {
+                variant: MoveType::Capture,
+                from: game.cache.data.focused_square.unwrap(),
+                to: (column, row),
+            },
+        ],
+        Some(piece) if !is_piece_ally(game, piece) && !has_focused_square(game) => {
+            vec![Command::Unfocus]
+        }
+        Some(piece) if is_piece_ally(game, piece) => vec![Command::Focus(column, row)],
+        None if has_focused_square(game) => vec![
+            Command::ChangeTurn,
+            Command::Unfocus,
+            Command::Move {
+                variant: MoveType::NonCapture,
+                from: game.cache.data.focused_square.unwrap(),
+                to: (column, row),
+            },
+        ],
+        _ => vec![],
+    }
 }
 
 fn handle_mousedown(game: &Game, mouse_btn: MouseButton, pos: (i32, i32)) -> Vec<Command> {
     match mouse_btn {
         MouseButton::Left if is_cursor_inside_board(game, pos) => handle_mouse_on_board(game, pos),
-        _ => vec![Command::Idle],
+        MouseButton::Left => vec![Command::Unfocus],
+        _ => vec![],
     }
 }
 

@@ -28,7 +28,7 @@ pub fn render(
     for (row, squares) in game.board.into_iter().enumerate() {
         for (column, square) in squares.into_iter().enumerate() {
             let (x, y) = into_absolute_position(game, (column, row));
-
+            let padding = 1.0;
             let cell_rect = Rect::new(
                 x as i32,
                 y as i32,
@@ -36,8 +36,21 @@ pub fn render(
                 game.cache.square_size.1 as u32,
             );
 
+            let cell_rect_focused = Rect::new(
+                (x as f32 + padding) as i32,
+                (y as f32 + padding) as i32,
+                (game.cache.square_size.0 - 2.0 * padding) as u32,
+                (game.cache.square_size.1 - 2.0 * padding) as u32,
+            );
+
             if column % 2 != 0 && row % 2 == 0 || column % 2 == 0 && row % 2 != 0 {
+                canvas.set_draw_color(configuration.palette.default_dark_color);
                 canvas.fill_rect(cell_rect)?;
+            }
+
+            if Some((column, row)) == game.cache.data.focused_square {
+                canvas.set_draw_color(configuration.palette.blue);
+                canvas.fill_rect(cell_rect_focused)?;
             }
 
             if let Some(ref piece) = square {
