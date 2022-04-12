@@ -33,10 +33,10 @@ fn is_cursor_inside_black_rect(game: &Game, pos: (i32, i32)) -> bool {
 fn handle_mousedown(game: &Game, mouse_btn: MouseButton, pos: (i32, i32)) -> Vec<Command> {
     match mouse_btn {
         MouseButton::Left if is_cursor_inside_white_rect(game, pos) => {
-            vec![Command::SelectTeam(TeamColor::Black)]
+            vec![Command::SelectTeam(TeamColor::White)]
         }
         MouseButton::Left if is_cursor_inside_black_rect(game, pos) => {
-            vec![Command::SelectTeam(TeamColor::White)]
+            vec![Command::SelectTeam(TeamColor::Black)]
         }
         _ => vec![Command::Idle],
     }
