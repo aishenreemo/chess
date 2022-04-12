@@ -1,4 +1,5 @@
 mod board_game;
+mod promote_selection;
 mod start_menu;
 mod team_selection;
 
@@ -12,5 +13,6 @@ pub fn handle_event(event: Event, game: &Game) -> Vec<Command> {
         GameState::StartMenu => start_menu::handle_event(event, game),
         GameState::TeamSelection => team_selection::handle_event(event, game),
         GameState::BoardGame => board_game::handle_event(event, game),
+        GameState::PromoteSelection => promote_selection::handle_event(event, game),
     }
 }

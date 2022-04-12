@@ -1,4 +1,5 @@
 mod board_game;
+mod promote_selection;
 mod start_menu;
 mod team_selection;
 
@@ -45,5 +46,6 @@ pub fn render(
         StartMenu => start_menu::render(canvas, configuration, game),
         TeamSelection => team_selection::render(canvas, configuration, game),
         BoardGame => board_game::render(canvas, configuration, game, textures),
+        PromoteSelection => promote_selection::render(canvas, configuration, game, textures),
     }
 }

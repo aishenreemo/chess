@@ -20,6 +20,7 @@ pub struct Textures<'a> {
 
 pub enum Command {
     Move(Move),
+    Promote((usize, usize)),
     ChangeTurn,
     Unfocus,
     Focus(usize, usize),

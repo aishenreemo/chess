@@ -29,7 +29,10 @@ pub struct Cache {
 
 pub struct GameData {
     pub focused_square: Option<(usize, usize)>,
+    pub recent_advancing_pawn: Option<(usize, usize)>,
+    pub recent_promoting_pawn: Option<(usize, usize)>,
     pub current_turn: TeamColor,
+    pub player_color: TeamColor,
     pub available_moves: HashSet<Move>,
     pub danger_squares: Vec<(usize, usize)>,
 }
@@ -40,7 +43,7 @@ pub struct Piece {
     pub color: TeamColor,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum PieceVariant {
     King,
     Queen,
@@ -60,6 +63,7 @@ pub enum GameState {
     StartMenu,
     TeamSelection,
     BoardGame,
+    PromoteSelection,
 }
 
 pub fn initialize_game(canvas: &WindowCanvas) -> Result<Game, Error> {
@@ -91,10 +95,13 @@ fn initialize_cache(canvas: &WindowCanvas) -> Result<Cache, Error> {
     })
 }
 
-fn initialize_data() -> GameData {
+pub fn initialize_data() -> GameData {
     GameData {
         focused_square: None,
+        recent_advancing_pawn: None,
+        recent_promoting_pawn: None,
         current_turn: TeamColor::White,
+        player_color: TeamColor::White,
         available_moves: HashSet::new(),
         danger_squares: vec![],
     }
@@ -105,8 +112,8 @@ pub fn init_chess_position(game: &mut Game, color: TeamColor) {
 
     let mut board = [[None; 8]; 8];
     let (king_queen_order, initial_rows) = match color {
-        TeamColor::White => ([King, Queen], [6, 1, 7, 0]),
-        TeamColor::Black => ([Queen, King], [1, 6, 0, 7]),
+        TeamColor::Black => ([King, Queen], [6, 1, 7, 0]),
+        TeamColor::White => ([Queen, King], [1, 6, 0, 7]),
     };
     let init_piece_on_column = |x: usize, color: TeamColor| match x {
         0 | 7 => Some(Piece {

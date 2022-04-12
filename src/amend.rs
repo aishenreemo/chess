@@ -1,9 +1,11 @@
-use crate::game::{self, Game, GameState, TeamColor};
-use crate::produce::{self, Move};
+use crate::game::{self, Game, GameState, Piece, TeamColor};
+use crate::produce::{self, Move, MoveType};
 use crate::Command;
 
 fn select_team(game: &mut Game, color: TeamColor) {
     game.state = GameState::BoardGame;
+    game.cache.data = game::initialize_data();
+    game.cache.data.player_color = color;
     game::init_chess_position(game, color)
 }
 
@@ -34,8 +36,33 @@ fn change_turn(game: &mut Game) {
 }
 
 fn move_piece(game: &mut Game, move_data: Move) {
-    game.board[move_data.to.1][move_data.to.0] =
-        game.board[move_data.from.1][move_data.from.0].take();
+    let piece_taken = game.board[move_data.from.1][move_data.from.0].take();
+    game.cache.data.recent_advancing_pawn = None;
+    game.cache.data.recent_promoting_pawn = None;
+
+    game.board[move_data.to.1][move_data.to.0] = match move_data.variant {
+        MoveType::Promotion(variant) => {
+            game.state = GameState::BoardGame;
+            Some(Piece {
+                variant,
+                color: game.cache.data.current_turn,
+            })
+        }
+        MoveType::AdvancePawn => {
+            game.cache.data.recent_advancing_pawn = Some(move_data.to);
+            piece_taken
+        }
+        MoveType::EnPassant => {
+            game.board[move_data.from.1][move_data.to.0].take();
+            piece_taken
+        }
+        _ => piece_taken,
+    }
+}
+
+fn promote(game: &mut Game, pos: (usize, usize)) {
+    game.state = GameState::PromoteSelection;
+    game.cache.data.recent_promoting_pawn = Some(pos);
 }
 
 pub fn update(instructions: Vec<Command>, game: &mut Game) {
@@ -49,6 +76,7 @@ pub fn update(instructions: Vec<Command>, game: &mut Game) {
             Command::ChangeTurn => change_turn(game),
             Command::Unfocus => unfocus_square(game),
             Command::Move(move_data) => move_piece(game, move_data),
+            Command::Promote(pos) => promote(game, pos),
             Command::Idle => (),
         }
     }
