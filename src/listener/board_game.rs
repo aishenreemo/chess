@@ -38,26 +38,26 @@ fn handle_mouse_on_board(game: &Game, pos: (i32, i32)) -> Vec<Command> {
 
     match game.get_square(column, row) {
         Some(piece) if !is_piece_ally(game, piece) && has_focused_square(game) => vec![
-            Command::ChangeTurn,
             Command::Unfocus,
             Command::Move(Move {
                 variant: MoveType::Capture,
                 from: game.cache.data.focused_square.unwrap(),
                 to: (column, row),
             }),
+            Command::ChangeTurn,
         ],
         Some(piece) if !is_piece_ally(game, piece) && !has_focused_square(game) => {
             vec![Command::Unfocus]
         }
         Some(piece) if is_piece_ally(game, piece) => vec![Command::Focus(column, row)],
         None if has_focused_square(game) => vec![
-            Command::ChangeTurn,
             Command::Unfocus,
             Command::Move(Move {
                 variant: MoveType::NonCapture,
                 from: game.cache.data.focused_square.unwrap(),
                 to: (column, row),
             }),
+            Command::ChangeTurn,
         ],
         _ => vec![],
     }
