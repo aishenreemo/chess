@@ -13,6 +13,7 @@ pub struct Move {
 pub enum MoveType {
     Capture,
     NonCapture,
+    Castling(usize),
     Promotion(PieceVariant),
     AdvancePawn,
     EnPassant,
@@ -71,6 +72,92 @@ fn generate_sliding_moves(
     moves
 }
 
+fn generate_king_moves(game: &Game, from: (usize, usize)) -> HashSet<Move> {
+    let mut moves: HashSet<Move> = HashSet::new();
+    let is_ally = game.cache.data.current_turn == game.cache.data.player_color;
+
+    let king_directions = [
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+        (0, -1),
+        (0, 0),
+        (0, 1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+    ];
+
+    for offset in king_directions.iter() {
+        let target_row = from.1 as i32 + offset.1;
+        let target_column = from.0 as i32 + offset.0;
+
+        if !(0..8).contains(&target_row) || !(0..8).contains(&target_column) {
+            continue;
+        }
+
+        let (target_column, target_row) = (target_column as usize, target_row as usize);
+
+        match game.get_square(target_column, target_row) {
+            Some(piece) if game.cache.data.current_turn == piece.color => continue,
+            square => moves.insert(Move {
+                from,
+                to: (target_column, target_row),
+                variant: if square.is_none() {
+                    MoveType::NonCapture
+                } else {
+                    MoveType::Capture
+                },
+            }),
+        };
+    }
+
+    let castling_directions = [-1, 1];
+    let castling_ptr = if is_ally { 0 } else { 1 };
+    let mut is_valid_castling = [false, false];
+
+    for (i, dir) in castling_directions.iter().enumerate() {
+        let mut j: i32 = 0;
+        loop {
+            j += 1;
+            let target_column = from.0 as i32 + dir * j;
+            if !(0..8).contains(&target_column) {
+                break;
+            }
+
+            let target_column = target_column as usize;
+            match game.get_square(target_column, from.1) {
+                Some(piece)
+                    if piece.variant == PieceVariant::Castle && [0, 7].contains(&target_column) =>
+                {
+                    is_valid_castling[i] = true;
+                    break;
+                }
+                Some(_) => break,
+                None => continue,
+            }
+        }
+    }
+
+    if is_valid_castling[0] && game.cache.data.is_valid_castling[castling_ptr][0] {
+        moves.insert(Move {
+            variant: MoveType::Castling(0),
+            from,
+            to: (from.0 - 2, from.1),
+        });
+    }
+
+    if is_valid_castling[1] && game.cache.data.is_valid_castling[castling_ptr][1] {
+        moves.insert(Move {
+            variant: MoveType::Castling(7),
+            from,
+            to: (from.0 + 2, from.1),
+        });
+    }
+
+    moves
+}
+
 fn generate_knight_moves(game: &Game, from: (usize, usize)) -> HashSet<Move> {
     let mut moves: HashSet<Move> = HashSet::new();
 
@@ -98,13 +185,12 @@ fn generate_knight_moves(game: &Game, from: (usize, usize)) -> HashSet<Move> {
 
         match target_square {
             Some(piece) if game.cache.data.current_turn == piece.color => continue,
-            Some(_piece) => moves.insert(Move {
-                variant: MoveType::Capture,
-                from,
-                to: (target_column, target_row),
-            }),
-            _ => moves.insert(Move {
-                variant: MoveType::NonCapture,
+            square => moves.insert(Move {
+                variant: if square.is_none() {
+                    MoveType::NonCapture
+                } else {
+                    MoveType::Capture
+                },
                 from,
                 to: (target_column, target_row),
             }),
@@ -222,9 +308,9 @@ pub fn generate_moves(game: &Game) -> HashSet<Move> {
                 Queen => generate_sliding_moves(game, (column, row), (0, 8)),
                 Castle => generate_sliding_moves(game, (column, row), (0, 4)),
                 Bishop => generate_sliding_moves(game, (column, row), (4, 8)),
+                King => generate_king_moves(game, (column, row)),
                 Knight => generate_knight_moves(game, (column, row)),
                 Pawn => generate_pawn_moves(game, (column, row)),
-                _ => continue,
             };
 
             moves.extend(piece_moves)

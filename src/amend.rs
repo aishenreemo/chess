@@ -1,4 +1,4 @@
-use crate::game::{self, Game, GameState, Piece, TeamColor};
+use crate::game::{self, Game, GameState, Piece, PieceVariant, TeamColor};
 use crate::produce::{self, Move, MoveType};
 use crate::Command;
 
@@ -35,10 +35,34 @@ fn change_turn(game: &mut Game) {
     game.cache.data.available_moves = produce::generate_moves(game);
 }
 
+fn update_castling_data(game: &mut Game, ptr: usize, column: usize) {
+    let column_ptr = if column == 0 { 0 } else { 1 };
+    if !game.cache.data.is_valid_castling[ptr][column_ptr] {
+        return;
+    }
+    game.cache.data.is_valid_castling[ptr][column_ptr] = false;
+}
+
 fn move_piece(game: &mut Game, move_data: Move) {
     let piece_taken = game.board[move_data.from.1][move_data.from.0].take();
     game.cache.data.recent_advancing_pawn = None;
     game.cache.data.recent_promoting_pawn = None;
+
+    if let Some(piece) = piece_taken {
+        use PieceVariant::*;
+        let ptr = if piece.color == game.cache.data.player_color {
+            0
+        } else {
+            1
+        };
+        match piece.variant {
+            King => game.cache.data.is_valid_castling[ptr] = [false; 2],
+            Castle if [0, 7].contains(&move_data.from.0) => {
+                update_castling_data(game, ptr, move_data.from.0)
+            }
+            _ => (),
+        }
+    }
 
     game.board[move_data.to.1][move_data.to.0] = match move_data.variant {
         MoveType::Promotion(variant) => {
@@ -54,6 +78,15 @@ fn move_piece(game: &mut Game, move_data: Move) {
         }
         MoveType::EnPassant => {
             game.board[move_data.from.1][move_data.to.0].take();
+            piece_taken
+        }
+        MoveType::Castling(column) => {
+            let to_column = if column == 7 {
+                move_data.to.0 - 1
+            } else {
+                move_data.to.0 + 1
+            };
+            game.board[move_data.from.1][to_column] = game.board[move_data.from.1][column].take();
             piece_taken
         }
         _ => piece_taken,

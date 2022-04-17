@@ -22,10 +22,6 @@ fn is_piece_ally(game: &Game, piece: &Piece) -> bool {
     piece.color == game.cache.data.current_turn
 }
 
-fn has_focused_square(game: &Game) -> bool {
-    game.cache.data.focused_square.is_some()
-}
-
 fn into_relative_position(game: &Game, pos: (i32, i32)) -> (usize, usize) {
     (
         ((pos.0 as f32 - game.cache.board_offset.0) / game.cache.square_size.0 as f32) as usize,
@@ -73,12 +69,37 @@ fn is_move_enpassant(game: &Game, column: usize) -> bool {
     }
 }
 
+fn is_move_castling(game: &Game, column: usize) -> bool {
+    let focused_square = game.cache.data.focused_square.unwrap_or((8, 8));
+    let from = game.get_square(focused_square.0, focused_square.1);
+    match from {
+        Some(piece) if piece.variant == PieceVariant::King => {
+            2 == (focused_square.0 as i32 - column as i32).abs()
+        }
+        _ => false,
+    }
+}
+
 fn handle_mouse_on_board(game: &Game, pos: (i32, i32)) -> Vec<Command> {
     let (column, row) = into_relative_position(game, pos);
-
+    let has_focused_square = game.cache.data.focused_square.is_some();
+    let is_valid_move = game.cache.data.danger_squares.contains(&(column, row));
     match game.get_square(column, row) {
-        _ if is_move_promotion(game, row) => vec![Command::Promote((column, row))],
-        _ if is_move_advancing_pawn(game, row) => vec![
+        _ if is_valid_move && is_move_castling(game, column) => {
+            let from = game.cache.data.focused_square.unwrap();
+            let castle_column = if from.0 < column { 7 } else { 0 };
+            vec![
+                Command::Move(Move {
+                    variant: MoveType::Castling(castle_column),
+                    from,
+                    to: (column, row),
+                }),
+                Command::Unfocus,
+                Command::ChangeTurn,
+            ]
+        }
+        _ if is_valid_move && is_move_promotion(game, row) => vec![Command::Promote((column, row))],
+        _ if is_valid_move && is_move_advancing_pawn(game, row) => vec![
             Command::Move(Move {
                 variant: MoveType::AdvancePawn,
                 from: game.cache.data.focused_square.unwrap(),
@@ -87,7 +108,7 @@ fn handle_mouse_on_board(game: &Game, pos: (i32, i32)) -> Vec<Command> {
             Command::Unfocus,
             Command::ChangeTurn,
         ],
-        _ if is_move_enpassant(game, column) => vec![
+        _ if is_valid_move && is_move_enpassant(game, column) => vec![
             Command::Move(Move {
                 variant: MoveType::EnPassant,
                 from: game.cache.data.focused_square.unwrap(),
@@ -96,7 +117,7 @@ fn handle_mouse_on_board(game: &Game, pos: (i32, i32)) -> Vec<Command> {
             Command::Unfocus,
             Command::ChangeTurn,
         ],
-        Some(piece) if !is_piece_ally(game, piece) && has_focused_square(game) => vec![
+        Some(piece) if is_valid_move && !is_piece_ally(game, piece) && has_focused_square => vec![
             Command::Unfocus,
             Command::Move(Move {
                 variant: MoveType::Capture,
@@ -105,11 +126,8 @@ fn handle_mouse_on_board(game: &Game, pos: (i32, i32)) -> Vec<Command> {
             }),
             Command::ChangeTurn,
         ],
-        Some(piece) if !is_piece_ally(game, piece) && !has_focused_square(game) => {
-            vec![Command::Unfocus]
-        }
         Some(piece) if is_piece_ally(game, piece) => vec![Command::Focus(column, row)],
-        None if has_focused_square(game) => vec![
+        None if is_valid_move && has_focused_square => vec![
             Command::Unfocus,
             Command::Move(Move {
                 variant: MoveType::NonCapture,
@@ -118,7 +136,7 @@ fn handle_mouse_on_board(game: &Game, pos: (i32, i32)) -> Vec<Command> {
             }),
             Command::ChangeTurn,
         ],
-        _ => vec![],
+        _ => vec![Command::Unfocus],
     }
 }
 

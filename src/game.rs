@@ -35,6 +35,7 @@ pub struct GameData {
     pub player_color: TeamColor,
     pub available_moves: HashSet<Move>,
     pub danger_squares: Vec<(usize, usize)>,
+    pub is_valid_castling: [[bool; 2]; 2],
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -104,6 +105,7 @@ pub fn initialize_data() -> GameData {
         player_color: TeamColor::White,
         available_moves: HashSet::new(),
         danger_squares: vec![],
+        is_valid_castling: [[true; 2]; 2],
     }
 }
 
